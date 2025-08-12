@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 
 class RegisterPage extends StatefulWidget {
   const RegisterPage({super.key});
@@ -15,9 +17,39 @@ class _RegisterPageState extends State<RegisterPage> {
       password = '',
       confirmPassword = '',
       statut = 'Étudiant';
-  DateTime? dateNaissance;
   bool _obscurePassword = true;
   bool _obscureConfirmPassword = true;
+
+  Future<void> _register() async {
+    if (_formKey.currentState!.validate()) {
+      try {
+        // Création compte Firebase Auth
+        UserCredential userCredential = await FirebaseAuth.instance
+            .createUserWithEmailAndPassword(email: email, password: password);
+
+        // Sauvegarde infos dans Firestore
+        await FirebaseFirestore.instance
+            .collection('users')
+            .doc(userCredential.user!.uid)
+            .set({
+              'nom': nom,
+              'prenom': prenom,
+              'email': email,
+              'statut': statut,
+              'createdAt': FieldValue.serverTimestamp(),
+            });
+
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('Inscription réussie')));
+        Navigator.pop(context);
+      } on FirebaseAuthException catch (e) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(e.message ?? 'Erreur lors de l’inscription')),
+        );
+      }
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -49,34 +81,6 @@ class _RegisterPageState extends State<RegisterPage> {
                 ),
                 onChanged: (val) => setState(() => prenom = val),
                 validator: (val) => val!.isEmpty ? 'Entrez votre prénom' : null,
-              ),
-              const SizedBox(height: 15),
-              TextFormField(
-                readOnly: true,
-                onTap: () async {
-                  final date = await showDatePicker(
-                    context: context,
-                    initialDate: DateTime.now().subtract(
-                      const Duration(days: 6570),
-                    ),
-                    firstDate: DateTime(1950),
-                    lastDate: DateTime.now(),
-                  );
-                  if (date != null) setState(() => dateNaissance = date);
-                },
-                controller: TextEditingController(
-                  text: dateNaissance != null
-                      ? '${dateNaissance!.day}/${dateNaissance!.month}/${dateNaissance!.year}'
-                      : '',
-                ),
-                decoration: const InputDecoration(
-                  labelText: 'Date de naissance',
-                  border: OutlineInputBorder(),
-                  suffixIcon: Icon(Icons.calendar_today),
-                ),
-                validator: (val) => dateNaissance == null
-                    ? 'Sélectionnez votre date de naissance'
-                    : null,
               ),
               const SizedBox(height: 15),
               DropdownButtonFormField<String>(
@@ -155,14 +159,7 @@ class _RegisterPageState extends State<RegisterPage> {
               ),
               const SizedBox(height: 25),
               ElevatedButton(
-                onPressed: () {
-                  if (_formKey.currentState!.validate()) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('Inscription réussie')),
-                    );
-                    Navigator.pop(context);
-                  }
-                },
+                onPressed: _register,
                 style: ElevatedButton.styleFrom(
                   backgroundColor: Colors.blueAccent,
                   padding: const EdgeInsets.symmetric(vertical: 16),

@@ -1,217 +1,417 @@
 import 'package:flutter/material.dart';
+import 'package:carousel_slider/carousel_slider.dart';
+import 'profile_page.dart'; // Import de la page profil
 
-class HomePage extends StatelessWidget {
+class HomePage extends StatefulWidget {
   final String userName;
   final String userRole;
 
   const HomePage({super.key, required this.userName, required this.userRole});
 
   @override
+  _HomePageState createState() => _HomePageState();
+}
+
+class _HomePageState extends State<HomePage> {
+  int _selectedIndex =
+      0; // Indice pour l'onglet sélectionné (Accueil par défaut)
+  bool _isPremium = false; // État initial : mode gratuit
+  bool _isDarkTheme = true; // État initial pour le thème sombre
+  bool _isNotificationsEnabled = true; // État initial pour les notifications
+
+  @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.grey[100],
-      appBar: AppBar(
-        backgroundColor: Colors.deepPurple,
-        elevation: 0,
-        title: Row(
-          children: const [
-            Icon(Icons.school, color: Colors.white, size: 28),
-            SizedBox(width: 8),
-            Text(
-              'EduBot',
-              style: TextStyle(
-                color: Colors.white,
-                fontWeight: FontWeight.bold,
-                fontSize: 22,
-              ),
-            ),
-          ],
-        ),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.logout, color: Colors.white),
-            onPressed: () {
-              _showLogoutDialog(context);
-            },
-          ),
-        ],
-      ),
-      body: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.all(20),
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  colors: [Colors.deepPurple, Colors.deepPurple.shade300],
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
+      backgroundColor: Colors.grey[50],
+      appBar: AppBar(title: const Text("EduBot")),
+      body: SafeArea(
+        child: SingleChildScrollView(
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // --- HEADER ---
+                Row(
+                  children: [
+                    // Logo
+                    Container(
+                      height: 50,
+                      width: 50,
+                      decoration: BoxDecoration(
+                        color: const Color.fromARGB(255, 152, 54, 244),
+                        shape: BoxShape.circle,
+                      ),
+                      alignment: Alignment.center,
+                      child: const Text(
+                        "EduBot",
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 12,
+                        ),
+                        textAlign: TextAlign.center,
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    // Texte salut avec le nom de l'utilisateur
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            "Salut, ${widget.userName}! 👋",
+                            style: const TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          const SizedBox(height: 2),
+                          const Text(
+                            "Prêt pour une aventure ?",
+                            style: TextStyle(
+                              color: Colors.black54,
+                              fontSize: 13,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
                 ),
-                borderRadius: BorderRadius.circular(15),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Bienvenue, $userName !',
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 24,
-                      fontWeight: FontWeight.bold,
+
+                const SizedBox(height: 16),
+
+                // --- CARROUSEL DYNAMIQUE AVEC 3 IMAGES ---
+                CarouselSlider(
+                  options: CarouselOptions(
+                    height: 180,
+                    autoPlay: true,
+                    enlargeCenterPage: true,
+                    aspectRatio: 16 / 9,
+                  ),
+                  items:
+                      [
+                        'assets/images/student.png',
+                        'assets/images/student2.png',
+                        'assets/images/student3.png',
+                      ].map((imagePath) {
+                        return ClipRRect(
+                          borderRadius: BorderRadius.circular(15),
+                          child: Image.asset(
+                            imagePath,
+                            fit: BoxFit.cover,
+                            width: double.infinity,
+                          ),
+                        );
+                      }).toList(),
+                ),
+
+                const SizedBox(height: 20),
+
+                // --- FILIÈRES (ACCÈS CONDITIONNEL) ---
+                const Text(
+                  "Filières :",
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                ),
+                const SizedBox(height: 10),
+                if (_isPremium)
+                  SingleChildScrollView(
+                    scrollDirection: Axis.horizontal,
+                    child: Row(
+                      children: [
+                        _buildCategory(
+                          "Informatique",
+                          Icons.computer,
+                          Colors.blue,
+                        ),
+                        _buildCategory(
+                          "Ressources Humaines",
+                          Icons.group,
+                          Colors.orange,
+                        ),
+                        _buildCategory(
+                          "Sciences de la Vie",
+                          Icons.biotech,
+                          Colors.green,
+                        ),
+                        _buildCategory(
+                          "Comptabilité",
+                          Icons.account_balance,
+                          Colors.purple,
+                        ),
+                        _buildCategory(
+                          "Mathématiques",
+                          Icons.calculate,
+                          Colors.teal,
+                        ),
+                      ],
+                    ),
+                  )
+                else
+                  Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: Colors.orange.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Column(
+                      children: [
+                        const Text(
+                          "Accès limité en mode gratuit !",
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.orange,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        ElevatedButton(
+                          onPressed: () {
+                            _showPaymentDialog(context);
+                          },
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.deepPurple,
+                          ),
+                          child: const Text(
+                            "Passer en mode Premium",
+                            style: TextStyle(color: Colors.white),
+                          ),
+                        ),
+                      ],
                     ),
                   ),
-                  const SizedBox(height: 8),
-                  Text(
-                    'Connecté en tant que $userRole',
-                    style: const TextStyle(color: Colors.white70, fontSize: 16),
-                  ),
-                  const SizedBox(height: 8),
-                  const Text(
-                    'Prêt à commencer votre parcours d\'apprentissage ?',
-                    style: TextStyle(color: Colors.white, fontSize: 14),
-                  ),
-                ],
-              ),
+
+                const SizedBox(height: 20),
+
+                // --- RÉCENT ---
+                const Text(
+                  "Récent :",
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                ),
+                const SizedBox(height: 10),
+
+                const SizedBox(height: 20),
+              ],
             ),
-            const SizedBox(height: 20),
-            const Text(
-              'Tableau de bord',
-              style: TextStyle(
-                fontSize: 20,
-                fontWeight: FontWeight.bold,
-                color: Colors.black87,
-              ),
-            ),
-            const SizedBox(height: 16),
-            Expanded(
-              child: GridView.count(
-                crossAxisCount: 2,
-                crossAxisSpacing: 16,
-                mainAxisSpacing: 16,
-                children: [
-                  _buildDashboardCard(
-                    context,
-                    title: 'Mes Cours',
-                    icon: Icons.book,
-                    color: Colors.blue,
-                  ),
-                  _buildDashboardCard(
-                    context,
-                    title: 'Examens',
-                    icon: Icons.quiz,
-                    color: Colors.orange,
-                  ),
-                  _buildDashboardCard(
-                    context,
-                    title: 'Chat EduBot',
-                    icon: Icons.smart_toy,
-                    color: Colors.green,
-                  ),
-                  _buildDashboardCard(
-                    context,
-                    title: 'Mon Profil',
-                    icon: Icons.person,
-                    color: Colors.purple,
-                  ),
-                  _buildDashboardCard(
-                    context,
-                    title: 'Bibliothèque',
-                    icon: Icons.library_books,
-                    color: Colors.teal,
-                  ),
-                  _buildDashboardCard(
-                    context,
-                    title: 'Statistiques',
-                    icon: Icons.analytics,
-                    color: Colors.red,
-                  ),
-                ],
-              ),
-            ),
-          ],
+          ),
         ),
       ),
-    );
-  }
 
-  Widget _buildDashboardCard(
-    BuildContext context, {
-    required String title,
-    required IconData icon,
-    required Color color,
-  }) {
-    return GestureDetector(
-      onTap: () => _showComingSoon(context, title),
-      child: Container(
+      // --- BARRE DE DASHBOARD EN BAS AVEC "ACCUEIL" ET EFFET DE SÉLECTION ---
+      bottomNavigationBar: Container(
+        padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
         decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(15),
+          color: Colors.grey[50],
           boxShadow: [
             BoxShadow(
               color: Colors.grey.withOpacity(0.2),
-              spreadRadius: 2,
               blurRadius: 5,
+              offset: const Offset(0, -1),
             ),
           ],
         ),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: color.withOpacity(0.1),
-                shape: BoxShape.circle,
+        child: SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+            children: [
+              _buildDashboardButton(
+                context,
+                "Accueil",
+                Icons.home,
+                Colors.deepPurple,
+                0,
               ),
-              child: Icon(icon, size: 40, color: color),
-            ),
-            const SizedBox(height: 12),
-            Text(
-              title,
-              style: TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.bold,
-                color: Colors.grey[800],
+              _buildDashboardButton(
+                context,
+                "Mes Cours",
+                Icons.book,
+                Colors.blue,
+                1,
               ),
-            ),
-          ],
+              _buildDashboardButton(
+                context,
+                "Examens",
+                Icons.quiz,
+                Colors.orange,
+                2,
+              ),
+              _buildDashboardButton(
+                context,
+                "Chat EduBot",
+                Icons.smart_toy,
+                Colors.green,
+                3,
+              ),
+              _buildDashboardButton(
+                context,
+                "Mon Profil",
+                Icons.person,
+                Colors.purple,
+                4,
+              ),
+              _buildDashboardButton(
+                context,
+                "Statistiques",
+                Icons.analytics,
+                Colors.red,
+                5,
+              ),
+            ],
+          ),
         ),
       ),
     );
   }
 
-  void _showLogoutDialog(BuildContext context) {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Déconnexion'),
-        content: const Text('Êtes-vous sûr de vouloir vous déconnecter ?'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Annuler'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.of(
-              context,
-            ).pushNamedAndRemoveUntil('/', (route) => false),
-            child: const Text('Se déconnecter'),
+  // --- WIDGET CATÉGORIE ---
+  Widget _buildCategory(String title, IconData icon, Color color) {
+    return Container(
+      margin: const EdgeInsets.only(right: 12),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.08),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Column(
+        children: [
+          Icon(icon, size: 30, color: color),
+          const SizedBox(height: 6),
+          SizedBox(
+            width: 80,
+            child: Text(
+              title,
+              textAlign: TextAlign.center,
+              style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500),
+            ),
           ),
         ],
       ),
     );
   }
 
-  void _showComingSoon(BuildContext context, String feature) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('$feature - Fonctionnalité à venir !'),
-        backgroundColor: Colors.deepPurple,
-        behavior: SnackBarBehavior.floating,
+  // --- WIDGET BOUTON DASHBOARD AVEC EFFET DE SÉLECTION ---
+  Widget _buildDashboardButton(
+    BuildContext context,
+    String title,
+    IconData icon,
+    Color color,
+    int index,
+  ) {
+    bool isSelected = _selectedIndex == index;
+
+    return GestureDetector(
+      onTap: () {
+        setState(() {
+          _selectedIndex = index;
+        });
+        if (index == 4) {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => ProfilePage(userName: widget.userName),
+            ),
+          );
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text("$title - Fonctionnalité à venir !"),
+              backgroundColor: Colors.deepPurple,
+              behavior: SnackBarBehavior.floating,
+            ),
+          );
+        }
+      },
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 8),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              decoration: BoxDecoration(
+                color: isSelected ? color.withOpacity(0.3) : Colors.transparent,
+                borderRadius: BorderRadius.circular(20),
+              ),
+              child: CircleAvatar(
+                radius: 20,
+                backgroundColor: color.withOpacity(0.15),
+                child: Icon(
+                  icon,
+                  color: isSelected ? Colors.white : color,
+                  size: 24,
+                ),
+              ),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              title,
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.bold,
+                color: isSelected ? color : Colors.black,
+              ),
+            ),
+          ],
+        ),
       ),
+    );
+  }
+
+  // --- DIALOGUE DE PAIEMENT ---
+  void _showPaymentDialog(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text("Passer en mode Premium"),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text("Choisissez un plan de paiement :"),
+            const SizedBox(height: 10),
+            _buildPaymentOption("500 FCFA / mois"),
+            _buildPaymentOption("1000 FCFA / 3 mois"),
+            _buildPaymentOption("2000 FCFA / 5 mois"),
+            const SizedBox(height: 10),
+            const Text("Méthodes de paiement : Mobile Money ou Orange Money"),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () {
+              Navigator.pop(context);
+            },
+            child: const Text("Annuler"),
+          ),
+          TextButton(
+            onPressed: () {
+              setState(() {
+                _isPremium = true;
+              });
+              Navigator.pop(context);
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text("Paiement réussi ! Mode Premium activé."),
+                  backgroundColor: Colors.green,
+                ),
+              );
+            },
+            child: const Text("Payer"),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // --- WIDGET OPTION DE PAIEMENT ---
+  Widget _buildPaymentOption(String option) {
+    return ListTile(
+      title: Text(option),
+      trailing: const Icon(Icons.payment),
+      onTap: () {
+        // Logique de sélection de l'option (facultatif)
+      },
     );
   }
 }

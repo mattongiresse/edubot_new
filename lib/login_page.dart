@@ -1,6 +1,8 @@
+import 'package:edubot_new/reset_password_page.dart';
 import 'package:flutter/material.dart';
-import 'register_page.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'home_page.dart';
+import 'register_page.dart';
 
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
@@ -11,15 +13,15 @@ class LoginPage extends StatefulWidget {
 
 class _LoginPageState extends State<LoginPage> {
   bool _obscurePassword = true;
-
   final TextEditingController _emailController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
 
-  void _login() {
-    final email = _emailController.text.trim();
-    final password = _passwordController.text;
-
-    if (email.isNotEmpty && password.isNotEmpty) {
+  Future<void> _login() async {
+    try {
+      await FirebaseAuth.instance.signInWithEmailAndPassword(
+        email: _emailController.text.trim(),
+        password: _passwordController.text,
+      );
       Navigator.pushReplacement(
         context,
         MaterialPageRoute(
@@ -27,12 +29,12 @@ class _LoginPageState extends State<LoginPage> {
               const HomePage(userName: 'Utilisateur', userRole: 'Étudiant'),
         ),
       );
-    } else {
+    } on FirebaseAuthException catch (e) {
       showDialog(
         context: context,
         builder: (_) => AlertDialog(
           title: const Text("Erreur"),
-          content: const Text("Veuillez remplir tous les champs."),
+          content: Text(e.message ?? "Erreur de connexion"),
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(context),
@@ -70,7 +72,6 @@ class _LoginPageState extends State<LoginPage> {
                   ),
                   prefixIcon: const Icon(Icons.email),
                 ),
-                keyboardType: TextInputType.emailAddress,
               ),
               const SizedBox(height: 20),
               TextField(
@@ -97,10 +98,18 @@ class _LoginPageState extends State<LoginPage> {
               Align(
                 alignment: Alignment.centerRight,
                 child: TextButton(
-                  onPressed: () {},
+                  onPressed: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => const ResetPasswordPage(),
+                      ),
+                    );
+                  },
                   child: const Text("Mot de passe oublié ?"),
                 ),
               ),
+
               const SizedBox(height: 10),
               SizedBox(
                 width: double.infinity,
@@ -125,14 +134,12 @@ class _LoginPageState extends State<LoginPage> {
                 children: [
                   const Text("Pas encore de compte ? "),
                   GestureDetector(
-                    onTap: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) => const RegisterPage(),
-                        ),
-                      );
-                    },
+                    onTap: () => Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => const RegisterPage(),
+                      ),
+                    ),
                     child: const Text(
                       "Créer un compte",
                       style: TextStyle(
@@ -143,7 +150,6 @@ class _LoginPageState extends State<LoginPage> {
                   ),
                 ],
               ),
-              const SizedBox(height: 30),
             ],
           ),
         ),

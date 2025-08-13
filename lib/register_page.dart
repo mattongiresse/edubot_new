@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'home_page.dart';
+import 'formateur_dashboard_page.dart'; // Import corrigé
 
 class RegisterPage extends StatefulWidget {
   const RegisterPage({super.key});
@@ -23,11 +25,11 @@ class _RegisterPageState extends State<RegisterPage> {
   Future<void> _register() async {
     if (_formKey.currentState!.validate()) {
       try {
-        // Création compte Firebase Auth
+        // Création du compte Firebase Auth
         UserCredential userCredential = await FirebaseAuth.instance
             .createUserWithEmailAndPassword(email: email, password: password);
 
-        // Sauvegarde infos dans Firestore
+        // Création automatique du document Firestore avec le rôle
         await FirebaseFirestore.instance
             .collection('users')
             .doc(userCredential.user!.uid)
@@ -39,13 +41,29 @@ class _RegisterPageState extends State<RegisterPage> {
               'createdAt': FieldValue.serverTimestamp(),
             });
 
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(const SnackBar(content: Text('Inscription réussie')));
-        Navigator.pop(context);
+        String userName = '$prenom $nom';
+
+        // Redirection selon le rôle avec les bons constructeurs
+        if (!mounted) return;
+        if (statut == 'Formateur') {
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(
+              builder: (context) => FormateurDashboardPage(userName: userName),
+            ),
+          );
+        } else {
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(
+              builder: (context) =>
+                  HomePage(userName: userName, userRole: statut),
+            ),
+          );
+        }
       } on FirebaseAuthException catch (e) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(e.message ?? 'Erreur lors de l’inscription')),
+          SnackBar(content: Text(e.message ?? 'Erreur lors de linscription')),
         );
       }
     }
@@ -54,10 +72,11 @@ class _RegisterPageState extends State<RegisterPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.blue[50],
+      backgroundColor: const Color.fromARGB(255, 137, 140, 143),
       appBar: AppBar(
         title: const Text('Créer un compte'),
         backgroundColor: Colors.blueAccent,
+        foregroundColor: Colors.white,
       ),
       body: Padding(
         padding: const EdgeInsets.all(20),
@@ -65,24 +84,33 @@ class _RegisterPageState extends State<RegisterPage> {
           key: _formKey,
           child: ListView(
             children: [
+              // Nom
               TextFormField(
+                style: const TextStyle(color: Colors.black),
                 decoration: const InputDecoration(
                   labelText: 'Nom',
+                  labelStyle: TextStyle(color: Colors.black),
                   border: OutlineInputBorder(),
                 ),
                 onChanged: (val) => setState(() => nom = val),
                 validator: (val) => val!.isEmpty ? 'Entrez votre nom' : null,
               ),
               const SizedBox(height: 15),
+
+              // Prénom
               TextFormField(
+                style: const TextStyle(color: Colors.black),
                 decoration: const InputDecoration(
                   labelText: 'Prénom',
+                  labelStyle: TextStyle(color: Colors.black),
                   border: OutlineInputBorder(),
                 ),
                 onChanged: (val) => setState(() => prenom = val),
                 validator: (val) => val!.isEmpty ? 'Entrez votre prénom' : null,
               ),
               const SizedBox(height: 15),
+
+              // Statut
               DropdownButtonFormField<String>(
                 value: statut,
                 items: const [
@@ -95,15 +123,20 @@ class _RegisterPageState extends State<RegisterPage> {
                 onChanged: (val) => setState(() => statut = val!),
                 decoration: const InputDecoration(
                   labelText: 'Statut',
+                  labelStyle: TextStyle(color: Colors.black),
                   border: OutlineInputBorder(),
                 ),
               ),
               const SizedBox(height: 15),
+
+              // Email
               TextFormField(
+                style: const TextStyle(color: Colors.black),
                 decoration: const InputDecoration(
                   labelText: 'Email',
+                  labelStyle: TextStyle(color: Colors.black),
                   border: OutlineInputBorder(),
-                  prefixIcon: Icon(Icons.email),
+                  prefixIcon: Icon(Icons.email, color: Colors.black),
                 ),
                 onChanged: (val) => setState(() => email = val),
                 validator: (val) {
@@ -116,16 +149,22 @@ class _RegisterPageState extends State<RegisterPage> {
                 },
               ),
               const SizedBox(height: 15),
+
+              // Mot de passe
               TextFormField(
+                style: const TextStyle(color: Colors.black),
                 obscureText: _obscurePassword,
                 decoration: InputDecoration(
                   labelText: 'Mot de passe',
+                  labelStyle: const TextStyle(color: Colors.black),
                   border: const OutlineInputBorder(),
+                  prefixIcon: const Icon(Icons.lock, color: Colors.black),
                   suffixIcon: IconButton(
                     icon: Icon(
                       _obscurePassword
                           ? Icons.visibility_off
                           : Icons.visibility,
+                      color: Colors.black,
                     ),
                     onPressed: () =>
                         setState(() => _obscurePassword = !_obscurePassword),
@@ -136,16 +175,22 @@ class _RegisterPageState extends State<RegisterPage> {
                     val!.length < 6 ? 'Minimum 6 caractères' : null,
               ),
               const SizedBox(height: 15),
+
+              // Confirmation mot de passe
               TextFormField(
+                style: const TextStyle(color: Colors.black),
                 obscureText: _obscureConfirmPassword,
                 decoration: InputDecoration(
                   labelText: 'Confirmer mot de passe',
+                  labelStyle: const TextStyle(color: Colors.black),
                   border: const OutlineInputBorder(),
+                  prefixIcon: const Icon(Icons.lock, color: Colors.black),
                   suffixIcon: IconButton(
                     icon: Icon(
                       _obscureConfirmPassword
                           ? Icons.visibility_off
                           : Icons.visibility,
+                      color: Colors.black,
                     ),
                     onPressed: () => setState(
                       () => _obscureConfirmPassword = !_obscureConfirmPassword,
@@ -158,18 +203,29 @@ class _RegisterPageState extends State<RegisterPage> {
                     : null,
               ),
               const SizedBox(height: 25),
+
+              // Bouton inscription
               ElevatedButton(
                 onPressed: _register,
                 style: ElevatedButton.styleFrom(
                   backgroundColor: Colors.blueAccent,
+                  foregroundColor: Colors.white,
                   padding: const EdgeInsets.symmetric(vertical: 16),
                 ),
-                child: const Text('S’inscrire', style: TextStyle(fontSize: 18)),
+                child: const Text(
+                  'S\'inscrire',
+                  style: TextStyle(fontSize: 18),
+                ),
               ),
+
               const SizedBox(height: 20),
+
               TextButton(
                 onPressed: () => Navigator.pop(context),
-                child: const Text('Déjà un compte ? Se connecter'),
+                child: const Text(
+                  'Déjà un compte ? Se connecter',
+                  style: TextStyle(color: Colors.black),
+                ),
               ),
             ],
           ),

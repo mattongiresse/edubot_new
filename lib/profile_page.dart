@@ -1,4 +1,9 @@
+import 'package:edubot_new/login_page.dart';
 import 'package:flutter/material.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:provider/provider.dart';
+import 'theme_notifier.dart';
 
 class ProfilePage extends StatefulWidget {
   final String userName;
@@ -10,8 +15,54 @@ class ProfilePage extends StatefulWidget {
 }
 
 class _ProfilePageState extends State<ProfilePage> {
-  bool _isDarkTheme = true; // État initial pour le thème sombre
-  bool _isNotificationsEnabled = true; // État initial pour les notifications
+  bool _isDarkTheme = true;
+  bool _isNotificationsEnabled = true;
+
+  String _displayName = '';
+  String _displayEmail = '';
+
+  @override
+  void initState() {
+    super.initState();
+    _checkAuthAndFetchData();
+  }
+
+  Future<void> _checkAuthAndFetchData() async {
+    final user = FirebaseAuth.instance.currentUser;
+
+    // Si aucun utilisateur connecté → redirection
+    if (user == null) {
+      if (!mounted) return;
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(builder: (_) => const LoginPage()),
+      );
+      return;
+    }
+
+    // Utilisateur connecté → récupérer les infos Firestore
+    try {
+      final doc = await FirebaseFirestore.instance
+          .collection('users')
+          .doc(user.uid)
+          .get();
+
+      if (!mounted) return;
+
+      setState(() {
+        _displayName = doc.data()?['name'] ?? widget.userName;
+        _displayEmail =
+            doc.data()?['email'] ?? user.email ?? 'user@example.com';
+      });
+    } catch (e) {
+      // En cas d’erreur de lecture Firestore
+      if (!mounted) return;
+      setState(() {
+        _displayName = widget.userName;
+        _displayEmail = user.email ?? 'user@example.com';
+      });
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -30,17 +81,19 @@ class _ProfilePageState extends State<ProfilePage> {
           ListTile(
             leading: CircleAvatar(
               child: Text(
-                widget.userName[0].toUpperCase(),
+                (_displayName.isNotEmpty
+                    ? _displayName[0].toUpperCase()
+                    : widget.userName[0].toUpperCase()),
                 style: const TextStyle(fontSize: 40.0),
               ),
             ),
             title: Text(
-              widget.userName,
+              _displayName.isNotEmpty ? _displayName : widget.userName,
               style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 20),
             ),
-            subtitle: const Text(
-              "user@example.com",
-            ), // Remplacez par l'email réel si disponible
+            subtitle: Text(
+              _displayEmail.isNotEmpty ? _displayEmail : "user@example.com",
+            ),
           ),
           const Divider(),
           // --- APPEARANCE ---
@@ -48,14 +101,19 @@ class _ProfilePageState extends State<ProfilePage> {
             leading: const Icon(Icons.palette),
             title: const Text('Apparence'),
             subtitle: const Text('Thème sombre'),
-            trailing: Switch(
-              value: _isDarkTheme,
-              onChanged: (value) {
-                setState(() {
-                  _isDarkTheme = value;
-                });
+            trailing: Consumer<ThemeNotifier>(
+              builder: (context, themeNotifier, child) {
+                return Switch(
+                  value: themeNotifier.isDarkMode,
+                  onChanged: (value) {
+                    themeNotifier.toggleTheme();
+                    setState(() {
+                      _isDarkTheme = value;
+                    });
+                  },
+                  activeColor: Colors.deepPurple,
+                );
               },
-              activeColor: Colors.deepPurple,
             ),
           ),
           // --- ABONNEMENT ---
@@ -64,7 +122,7 @@ class _ProfilePageState extends State<ProfilePage> {
             title: const Text('Abonnement'),
             subtitle: const Text('Plan d\'abonnement'),
             onTap: () {
-              // Placeholder pour ouvrir le dialogue de paiement si nécessaire
+              // Action d'abonnement
             },
           ),
           // --- PARAMÈTRES ---
@@ -85,13 +143,13 @@ class _ProfilePageState extends State<ProfilePage> {
                   activeColor: Colors.deepPurple,
                 ),
               ),
-              ListTile(
-                leading: const Icon(Icons.language),
-                title: const Text('Langue'),
+              const ListTile(
+                leading: Icon(Icons.language),
+                title: Text('Langue'),
               ),
             ],
           ),
-          // --- AIDE ET SUPPORT TECHNIQUE ---
+          // --- AIDE ET SUPPORT ---
           const ListTile(
             leading: Icon(Icons.headset_mic),
             title: Text('Aide et Support Technique'),
@@ -105,13 +163,13 @@ class _ProfilePageState extends State<ProfilePage> {
               'Déconnexion',
               style: TextStyle(color: Colors.red),
             ),
-            onTap: () {
-              // Logique de déconnexion (par ex. avec Firebase Auth)
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text("Déconnexion en cours..."),
-                  backgroundColor: Colors.red,
-                ),
+            onTap: () async {
+              await FirebaseAuth.instance.signOut();
+              if (!mounted) return;
+              Navigator.pushAndRemoveUntil(
+                context,
+                MaterialPageRoute(builder: (context) => const LoginPage()),
+                (route) => false,
               );
             },
           ),

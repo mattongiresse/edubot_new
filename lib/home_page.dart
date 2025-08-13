@@ -1,6 +1,7 @@
+import 'package:edubot_new/course_page.dart';
 import 'package:flutter/material.dart';
 import 'package:carousel_slider/carousel_slider.dart';
-import 'profile_page.dart'; // Import de la page profil
+import 'profile_page.dart'; // Vérifiez que ce fichier existe dans le même répertoire
 
 class HomePage extends StatefulWidget {
   final String userName;
@@ -292,6 +293,7 @@ class _HomePageState extends State<HomePage> {
   }
 
   // --- WIDGET BOUTON DASHBOARD AVEC EFFET DE SÉLECTION ---
+
   Widget _buildDashboardButton(
     BuildContext context,
     String title,
@@ -306,7 +308,13 @@ class _HomePageState extends State<HomePage> {
         setState(() {
           _selectedIndex = index;
         });
-        if (index == 4) {
+        if (index == 1) {
+          // "Mes Cours" est à l'index 1
+          Navigator.push(
+            context,
+            MaterialPageRoute(builder: (context) => const CoursePage()),
+          );
+        } else if (index == 4) {
           Navigator.push(
             context,
             MaterialPageRoute(

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'formateur_courses_page.dart'; // Import de la nouvelle page
 
 class FormateurDashboardPage extends StatelessWidget {
   final String userName;
@@ -9,6 +10,9 @@ class FormateurDashboardPage extends StatelessWidget {
   Future<void> _logout(BuildContext context) async {
     try {
       await FirebaseAuth.instance.signOut();
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Déconnexion réussie !')));
       Navigator.pushReplacementNamed(context, '/login');
     } catch (e) {
       ScaffoldMessenger.of(
@@ -20,7 +24,7 @@ class FormateurDashboardPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color.fromARGB(255, 141, 145, 151),
+      backgroundColor: const Color.fromARGB(255, 240, 242, 245),
       appBar: AppBar(
         title: const Text(
           'Dashboard Formateur',
@@ -77,7 +81,7 @@ class FormateurDashboardPage extends StatelessWidget {
 
             const SizedBox(height: 30),
 
-            // 📊 Cartes de fonctionnalités (provisoires)
+            // 📊 Cartes de fonctionnalités
             Expanded(
               child: GridView.count(
                 crossAxisCount: 2,
@@ -96,7 +100,15 @@ class FormateurDashboardPage extends StatelessWidget {
                     title: 'Mes Cours',
                     subtitle: 'Gestion du contenu',
                     color: Colors.green,
-                    onTap: () => _showComingSoon(context),
+                    onTap: () {
+                      // 🎯 Navigation vers la page de gestion des cours
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => const FormateurCoursesPage(),
+                        ),
+                      );
+                    },
                   ),
                   _buildFeatureCard(
                     icon: Icons.people,

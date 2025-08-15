@@ -1,7 +1,7 @@
-import 'package:edubot_new/course_page.dart';
 import 'package:flutter/material.dart';
 import 'package:carousel_slider/carousel_slider.dart';
-import 'profile_page.dart'; // Vérifiez que ce fichier existe dans le même répertoire
+import 'student_courses_page.dart'; // Import de la nouvelle page
+import 'profile_page.dart';
 
 class HomePage extends StatefulWidget {
   final String userName;
@@ -14,11 +14,10 @@ class HomePage extends StatefulWidget {
 }
 
 class _HomePageState extends State<HomePage> {
-  int _selectedIndex =
-      0; // Indice pour l'onglet sélectionné (Accueil par défaut)
-  bool _isPremium = false; // État initial : mode gratuit
-  bool _isDarkTheme = true; // État initial pour le thème sombre
-  bool _isNotificationsEnabled = true; // État initial pour les notifications
+  int _selectedIndex = 0;
+  bool _isPremium = false;
+  bool _isDarkTheme = true;
+  bool _isNotificationsEnabled = true;
 
   @override
   Widget build(BuildContext context) {
@@ -35,7 +34,6 @@ class _HomePageState extends State<HomePage> {
                 // --- HEADER ---
                 Row(
                   children: [
-                    // Logo
                     Container(
                       height: 50,
                       width: 50,
@@ -55,7 +53,6 @@ class _HomePageState extends State<HomePage> {
                       ),
                     ),
                     const SizedBox(width: 12),
-                    // Texte salut avec le nom de l'utilisateur
                     Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
@@ -83,7 +80,7 @@ class _HomePageState extends State<HomePage> {
 
                 const SizedBox(height: 16),
 
-                // --- CARROUSEL DYNAMIQUE AVEC 3 IMAGES ---
+                // --- CARROUSEL DYNAMIQUE ---
                 CarouselSlider(
                   options: CarouselOptions(
                     height: 180,
@@ -91,26 +88,37 @@ class _HomePageState extends State<HomePage> {
                     enlargeCenterPage: true,
                     aspectRatio: 16 / 9,
                   ),
-                  items:
-                      [
-                        'assets/images/student.png',
-                        'assets/images/student2.png',
-                        'assets/images/student3.png',
-                      ].map((imagePath) {
-                        return ClipRRect(
-                          borderRadius: BorderRadius.circular(15),
-                          child: Image.asset(
-                            imagePath,
-                            fit: BoxFit.cover,
-                            width: double.infinity,
-                          ),
-                        );
-                      }).toList(),
+                  items: [
+                    'assets/images/student.png',
+                    'assets/images/student2.png',
+                    'assets/images/student3.png',
+                  ].map((imagePath) {
+                    return ClipRRect(
+                      borderRadius: BorderRadius.circular(15),
+                      child: Image.asset(
+                        imagePath,
+                        fit: BoxFit.cover,
+                        width: double.infinity,
+                        errorBuilder: (context, error, stackTrace) {
+                          return Container(
+                            color: Colors.deepPurple.withOpacity(0.1),
+                            child: const Center(
+                              child: Icon(
+                                Icons.image,
+                                size: 50,
+                                color: Colors.deepPurple,
+                              ),
+                            ),
+                          );
+                        },
+                      ),
+                    );
+                  }).toList(),
                 ),
 
                 const SizedBox(height: 20),
 
-                // --- FILIÈRES (ACCÈS CONDITIONNEL) ---
+                // --- FILIÈRES ---
                 const Text(
                   "Filières :",
                   style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
@@ -121,31 +129,11 @@ class _HomePageState extends State<HomePage> {
                     scrollDirection: Axis.horizontal,
                     child: Row(
                       children: [
-                        _buildCategory(
-                          "Informatique",
-                          Icons.computer,
-                          Colors.blue,
-                        ),
-                        _buildCategory(
-                          "Ressources Humaines",
-                          Icons.group,
-                          Colors.orange,
-                        ),
-                        _buildCategory(
-                          "Sciences de la Vie",
-                          Icons.biotech,
-                          Colors.green,
-                        ),
-                        _buildCategory(
-                          "Comptabilité",
-                          Icons.account_balance,
-                          Colors.purple,
-                        ),
-                        _buildCategory(
-                          "Mathématiques",
-                          Icons.calculate,
-                          Colors.teal,
-                        ),
+                        _buildCategory("Informatique", Icons.computer, Colors.blue),
+                        _buildCategory("Ressources Humaines", Icons.group, Colors.orange),
+                        _buildCategory("Sciences de la Vie", Icons.biotech, Colors.green),
+                        _buildCategory("Comptabilité", Icons.account_balance, Colors.purple),
+                        _buildCategory("Mathématiques", Icons.calculate, Colors.teal),
                       ],
                     ),
                   )
@@ -191,7 +179,6 @@ class _HomePageState extends State<HomePage> {
                   style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                 ),
                 const SizedBox(height: 10),
-
                 const SizedBox(height: 20),
               ],
             ),
@@ -199,7 +186,7 @@ class _HomePageState extends State<HomePage> {
         ),
       ),
 
-      // --- BARRE DE DASHBOARD EN BAS AVEC "ACCUEIL" ET EFFET DE SÉLECTION ---
+      // --- BARRE DE NAVIGATION ---
       bottomNavigationBar: Container(
         padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
         decoration: BoxDecoration(
@@ -217,48 +204,12 @@ class _HomePageState extends State<HomePage> {
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceEvenly,
             children: [
-              _buildDashboardButton(
-                context,
-                "Accueil",
-                Icons.home,
-                Colors.deepPurple,
-                0,
-              ),
-              _buildDashboardButton(
-                context,
-                "Mes Cours",
-                Icons.book,
-                Colors.blue,
-                1,
-              ),
-              _buildDashboardButton(
-                context,
-                "Examens",
-                Icons.quiz,
-                Colors.orange,
-                2,
-              ),
-              _buildDashboardButton(
-                context,
-                "Chat EduBot",
-                Icons.smart_toy,
-                Colors.green,
-                3,
-              ),
-              _buildDashboardButton(
-                context,
-                "Mon Profil",
-                Icons.person,
-                Colors.purple,
-                4,
-              ),
-              _buildDashboardButton(
-                context,
-                "Statistiques",
-                Icons.analytics,
-                Colors.red,
-                5,
-              ),
+              _buildDashboardButton(context, "Accueil", Icons.home, Colors.deepPurple, 0),
+              _buildDashboardButton(context, "Mes Cours", Icons.book, Colors.blue, 1),
+              _buildDashboardButton(context, "Examens", Icons.quiz, Colors.orange, 2),
+              _buildDashboardButton(context, "Chat EduBot", Icons.smart_toy, Colors.green, 3),
+              _buildDashboardButton(context, "Mon Profil", Icons.person, Colors.purple, 4),
+              _buildDashboardButton(context, "Statistiques", Icons.analytics, Colors.red, 5),
             ],
           ),
         ),
@@ -266,7 +217,6 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
-  // --- WIDGET CATÉGORIE ---
   Widget _buildCategory(String title, IconData icon, Color color) {
     return Container(
       margin: const EdgeInsets.only(right: 12),
@@ -292,8 +242,6 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
-  // --- WIDGET BOUTON DASHBOARD AVEC EFFET DE SÉLECTION ---
-
   Widget _buildDashboardButton(
     BuildContext context,
     String title,
@@ -309,10 +257,10 @@ class _HomePageState extends State<HomePage> {
           _selectedIndex = index;
         });
         if (index == 1) {
-          // "Mes Cours" est à l'index 1
+          // 🎯 Navigation vers la page de cours pour étudiants
           Navigator.push(
             context,
-            MaterialPageRoute(builder: (context) => const CoursePage()),
+            MaterialPageRoute(builder: (context) => const StudentCoursesPage()),
           );
         } else if (index == 4) {
           Navigator.push(
@@ -367,7 +315,6 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
-  // --- DIALOGUE DE PAIEMENT ---
   void _showPaymentDialog(BuildContext context) {
     showDialog(
       context: context,
@@ -387,9 +334,7 @@ class _HomePageState extends State<HomePage> {
         ),
         actions: [
           TextButton(
-            onPressed: () {
-              Navigator.pop(context);
-            },
+            onPressed: () => Navigator.pop(context),
             child: const Text("Annuler"),
           ),
           TextButton(
@@ -412,13 +357,12 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
-  // --- WIDGET OPTION DE PAIEMENT ---
   Widget _buildPaymentOption(String option) {
     return ListTile(
       title: Text(option),
       trailing: const Icon(Icons.payment),
       onTap: () {
-        // Logique de sélection de l'option (facultatif)
+        // Logique de sélection de l'option
       },
     );
   }

@@ -73,7 +73,7 @@ class _CoursePageState extends State<CoursePage> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Mes Cours'),
-        backgroundColor: Colors.deepPurple,
+        backgroundColor: const Color.fromARGB(255, 119, 95, 161),
       ),
       body: Padding(
         padding: const EdgeInsets.all(16.0),

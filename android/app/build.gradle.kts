@@ -13,7 +13,9 @@ dependencies {
 android {
     namespace = "com.example.edubot_new"
     compileSdk = flutter.compileSdkVersion
-    ndkVersion = flutter.ndkVersion
+    
+    // ✅ Forcer la version NDK demandée par Firebase
+    ndkVersion = "27.0.12077973"
 
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_11
@@ -26,7 +28,10 @@ android {
 
     defaultConfig {
         applicationId = "com.example.edubot_new"
-        minSdk = flutter.minSdkVersion
+
+        // ✅ Correction : on force à 23 pour supporter cloud_firestore
+        minSdk = 23
+
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode
         versionName = flutter.versionName

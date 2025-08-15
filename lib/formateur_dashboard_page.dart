@@ -1,23 +1,117 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'formateur_courses_page.dart'; // Import de la nouvelle page
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'formateur_courses_page.dart';
+import 'student_tracking_page.dart';
+import 'quiz_management_page.dart';
+import 'formateur_messages_page.dart';
+import 'evaluations_page.dart';
+import 'formateur_analytics_page.dart';
+import 'formateur_profile_page.dart';
 
-class FormateurDashboardPage extends StatelessWidget {
+class FormateurDashboardPage extends StatefulWidget {
   final String userName;
 
   const FormateurDashboardPage({super.key, required this.userName});
 
-  Future<void> _logout(BuildContext context) async {
+  @override
+  State<FormateurDashboardPage> createState() => _FormateurDashboardPageState();
+}
+
+class _FormateurDashboardPageState extends State<FormateurDashboardPage> {
+  Map<String, dynamic> _dashboardStats = {};
+  bool _isLoadingStats = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadDashboardStats();
+  }
+
+  Future<void> _loadDashboardStats() async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) return;
+
     try {
-      await FirebaseAuth.instance.signOut();
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('Déconnexion réussie !')));
-      Navigator.pushReplacementNamed(context, '/login');
+      final coursesSnapshot = await FirebaseFirestore.instance
+          .collection('courses')
+          .where('formateurId', isEqualTo: user.uid)
+          .get();
+
+      final enrollmentsQuery = await FirebaseFirestore.instance
+          .collection('enrollments')
+          .get();
+
+      final quizzesSnapshot = await FirebaseFirestore.instance
+          .collection('quizzes')
+          .where('formateurId', isEqualTo: user.uid)
+          .get();
+
+      final messagesSnapshot = await FirebaseFirestore.instance
+          .collection('conversations')
+          .where('formateurId', isEqualTo: user.uid)
+          .where('hasUnread', isEqualTo: true)
+          .get();
+
+      final myCourseIds = coursesSnapshot.docs.map((doc) => doc.id).toList();
+      final myEnrollments = enrollmentsQuery.docs.where((enrollment) {
+        final data = enrollment.data() as Map<String, dynamic>;
+        return myCourseIds.contains(data['courseId']);
+      }).toList();
+
+      setState(() {
+        _dashboardStats = {
+          'totalCourses': coursesSnapshot.docs.length,
+          'totalStudents': myEnrollments.length,
+          'totalQuizzes': quizzesSnapshot.docs.length,
+          'unreadMessages': messagesSnapshot.docs.length,
+          'recentEnrollments': myEnrollments.where((e) {
+            final data = e.data() as Map<String, dynamic>;
+            final enrolledAt = data['enrolledAt'] as Timestamp?;
+            if (enrolledAt == null) return false;
+            final daysDiff = DateTime.now()
+                .difference(enrolledAt.toDate())
+                .inDays;
+            return daysDiff <= 7;
+          }).length,
+        };
+        _isLoadingStats = false;
+      });
     } catch (e) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('Erreur de déconnexion: $e')));
+      setState(() => _isLoadingStats = false);
+    }
+  }
+
+  Future<void> _logout(BuildContext context) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Déconnexion'),
+        content: const Text('Êtes-vous sûr de vouloir vous déconnecter ?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Annuler'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+            child: const Text('Déconnexion'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true) {
+      try {
+        await FirebaseAuth.instance.signOut();
+        if (!mounted) return;
+        Navigator.pushReplacementNamed(context, '/login');
+      } catch (e) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Erreur de déconnexion: $e')));
+      }
     }
   }
 
@@ -35,196 +129,161 @@ class FormateurDashboardPage extends StatelessWidget {
         elevation: 2,
         actions: [
           IconButton(
-            onPressed: () => _logout(context),
             icon: const Icon(Icons.logout),
+            onPressed: () => _logout(context),
             tooltip: 'Déconnexion',
           ),
         ],
       ),
-      body: Padding(
-        padding: const EdgeInsets.all(20),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // 🎯 En-tête de bienvenue
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.all(20),
-              decoration: BoxDecoration(
-                gradient: const LinearGradient(
-                  colors: [Colors.deepPurple, Colors.purpleAccent],
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                ),
-                borderRadius: BorderRadius.circular(15),
-              ),
+      body: _isLoadingStats
+          ? const Center(child: CircularProgressIndicator())
+          : Padding(
+              padding: const EdgeInsets.all(16),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Icon(Icons.school, color: Colors.white, size: 40),
-                  const SizedBox(height: 10),
                   Text(
-                    'Bienvenue, $userName',
+                    "Bienvenue, ${widget.userName} 👋",
                     style: const TextStyle(
-                      fontSize: 24,
+                      fontSize: 20,
                       fontWeight: FontWeight.bold,
-                      color: Colors.white,
                     ),
                   ),
-                  const Text(
-                    'Espace Formateur',
-                    style: TextStyle(fontSize: 16, color: Colors.white70),
-                  ),
-                ],
-              ),
-            ),
-
-            const SizedBox(height: 30),
-
-            // 📊 Cartes de fonctionnalités
-            Expanded(
-              child: GridView.count(
-                crossAxisCount: 2,
-                crossAxisSpacing: 15,
-                mainAxisSpacing: 15,
-                children: [
-                  _buildFeatureCard(
-                    icon: Icons.analytics,
-                    title: 'Statistiques',
-                    subtitle: 'Performance étudiants',
-                    color: Colors.blue,
-                    onTap: () => _showComingSoon(context),
-                  ),
-                  _buildFeatureCard(
-                    icon: Icons.book,
-                    title: 'Mes Cours',
-                    subtitle: 'Gestion du contenu',
-                    color: Colors.green,
-                    onTap: () {
-                      // 🎯 Navigation vers la page de gestion des cours
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) => const FormateurCoursesPage(),
+                  const SizedBox(height: 20),
+                  Expanded(
+                    child: GridView.count(
+                      crossAxisCount: 2,
+                      crossAxisSpacing: 12,
+                      mainAxisSpacing: 12,
+                      children: [
+                        _buildStatCard(
+                          "Cours",
+                          _dashboardStats['totalCourses'],
+                          Colors.blue,
+                          () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) => const FormateurCoursesPage(),
+                              ),
+                            );
+                          },
                         ),
-                      );
-                    },
-                  ),
-                  _buildFeatureCard(
-                    icon: Icons.people,
-                    title: 'Étudiants',
-                    subtitle: 'Gestion des apprenants',
-                    color: Colors.orange,
-                    onTap: () => _showComingSoon(context),
-                  ),
-                  _buildFeatureCard(
-                    icon: Icons.assignment,
-                    title: 'Évaluations',
-                    subtitle: 'Quiz & examens',
-                    color: Colors.red,
-                    onTap: () => _showComingSoon(context),
-                  ),
-                  _buildFeatureCard(
-                    icon: Icons.chat,
-                    title: 'Messages',
-                    subtitle: 'Communication',
-                    color: Colors.teal,
-                    onTap: () => _showComingSoon(context),
-                  ),
-                  _buildFeatureCard(
-                    icon: Icons.settings,
-                    title: 'Paramètres',
-                    subtitle: 'Configuration',
-                    color: Colors.grey,
-                    onTap: () => _showComingSoon(context),
+                        _buildStatCard(
+                          "Étudiants",
+                          _dashboardStats['totalStudents'],
+                          Colors.green,
+                          () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) => const StudentTrackingPage(),
+                              ),
+                            );
+                          },
+                        ),
+                        _buildStatCard(
+                          "Quiz",
+                          _dashboardStats['totalQuizzes'],
+                          Colors.orange,
+                          () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) => const QuizManagementPage(),
+                              ),
+                            );
+                          },
+                        ),
+                        _buildStatCard(
+                          "Messages non lus",
+                          _dashboardStats['unreadMessages'],
+                          Colors.red,
+                          () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) => const FormateurMessagesPage(),
+                              ),
+                            );
+                          },
+                        ),
+                        _buildStatCard("Évaluations", "-", Colors.purple, () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => const EvaluationsPage(),
+                            ),
+                          );
+                        }),
+                        _buildStatCard(
+                          "Analytique",
+                          "-",
+                          Colors.deepPurpleAccent,
+                          () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) => const FormateurAnalyticsPage(),
+                              ),
+                            );
+                          },
+                        ),
+                        _buildStatCard("Profil", "-", Colors.teal, () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => const FormateurProfilePage(),
+                            ),
+                          );
+                        }),
+                      ],
+                    ),
                   ),
                 ],
               ),
             ),
-          ],
-        ),
-      ),
     );
   }
 
-  Widget _buildFeatureCard({
-    required IconData icon,
-    required String title,
-    required String subtitle,
-    required Color color,
-    required VoidCallback onTap,
-  }) {
-    return GestureDetector(
+  Widget _buildStatCard(
+    String title,
+    dynamic value,
+    Color color,
+    VoidCallback onTap,
+  ) {
+    return InkWell(
       onTap: onTap,
-      child: Container(
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(15),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.grey.withOpacity(0.1),
-              spreadRadius: 1,
-              blurRadius: 5,
-              offset: const Offset(0, 3),
+      child: Card(
+        color: color.withOpacity(0.1),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        child: Center(
+          child: Padding(
+            padding: const EdgeInsets.all(12.0),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  value.toString(),
+                  style: TextStyle(
+                    fontSize: 24,
+                    fontWeight: FontWeight.bold,
+                    color: color,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  title,
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w500,
+                    color: color,
+                  ),
+                ),
+              ],
             ),
-          ],
-        ),
-        child: Padding(
-          padding: const EdgeInsets.all(20),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Container(
-                padding: const EdgeInsets.all(15),
-                decoration: BoxDecoration(
-                  color: color.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(50),
-                ),
-                child: Icon(icon, color: color, size: 30),
-              ),
-              const SizedBox(height: 15),
-              Text(
-                title,
-                style: const TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.black87,
-                ),
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 5),
-              Text(
-                subtitle,
-                style: TextStyle(fontSize: 12, color: Colors.grey[600]),
-                textAlign: TextAlign.center,
-              ),
-            ],
           ),
         ),
-      ),
-    );
-  }
-
-  void _showComingSoon(BuildContext context) {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Row(
-          children: [
-            Icon(Icons.construction, color: Colors.orange),
-            SizedBox(width: 10),
-            Text('Bientôt disponible'),
-          ],
-        ),
-        content: const Text(
-          'Cette fonctionnalité sera ajoutée dans une prochaine version.',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('OK'),
-          ),
-        ],
       ),
     );
   }

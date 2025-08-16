@@ -5,7 +5,6 @@ import 'package:firebase_storage/firebase_storage.dart';
 import 'package:file_picker/file_picker.dart';
 import 'dart:io' show File; // 📱 Import File pour mobile/desktop
 import 'package:flutter/foundation.dart'; // pour kIsWeb
-import 'dart:typed_data';
 
 class FormateurCoursesPage extends StatefulWidget {
   const FormateurCoursesPage({super.key});

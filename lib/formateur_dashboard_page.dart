@@ -55,7 +55,7 @@ class _FormateurDashboardPageState extends State<FormateurDashboardPage> {
 
       final myCourseIds = coursesSnapshot.docs.map((doc) => doc.id).toList();
       final myEnrollments = enrollmentsQuery.docs.where((enrollment) {
-        final data = enrollment.data() as Map<String, dynamic>;
+        final data = enrollment.data();
         return myCourseIds.contains(data['courseId']);
       }).toList();
 
@@ -66,7 +66,7 @@ class _FormateurDashboardPageState extends State<FormateurDashboardPage> {
           'totalQuizzes': quizzesSnapshot.docs.length,
           'unreadMessages': messagesSnapshot.docs.length,
           'recentEnrollments': myEnrollments.where((e) {
-            final data = e.data() as Map<String, dynamic>;
+            final data = e.data();
             final enrolledAt = data['enrolledAt'] as Timestamp?;
             if (enrolledAt == null) return false;
             final daysDiff = DateTime.now()

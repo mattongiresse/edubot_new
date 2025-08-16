@@ -1,11 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:fl_chart/fl_chart.dart';
-import 'package:flutter/material.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_auth/firebase_auth.dart';
-import 'package:firebase_storage/firebase_storage.dart';
-import 'package:file_picker/file_picker.dart';
-import 'package:flutter/foundation.dart';
 
 class FormateurProfilePage extends StatefulWidget {
   const FormateurProfilePage({super.key});
@@ -41,17 +35,15 @@ class _FormateurProfilePageState extends State<FormateurProfilePage>
     super.initState();
     _tabController = TabController(length: 4, vsync: this);
 
-    // Simuler des données utilisateur
-    _prenomController.text = "Jean";
-    _nomController.text = "Dupont";
-    _emailController.text = "jean.dupont@example.com";
-    _bioController.text =
-        "Passionné par l’enseignement numérique, je forme depuis plus de 10 ans en développement mobile et cloud.";
-    _specialitesController.text = "Flutter, Firebase, Mobile Development";
-    _experienceController.text =
-        "10 ans d'expérience dans le développement mobile et l'enseignement. Expert Flutter chez Google Developer Group.";
-    _linkedinController.text = "https://linkedin.com/in/jeandupont";
-    _websiteController.text = "https://jeandupont.dev";
+    // Simuler des donnÃ©es utilisateur
+    _prenomController.text = " ";
+    _nomController.text = " ";
+    _emailController.text = " ";
+    _bioController.text = " ";
+    _specialitesController.text = " ";
+    _experienceController.text = " ";
+    _linkedinController.text = " ";
+    _websiteController.text = " ";
   }
 
   @override
@@ -72,7 +64,7 @@ class _FormateurProfilePageState extends State<FormateurProfilePage>
           tabs: const [
             Tab(icon: Icon(Icons.person), text: "Profil"),
             Tab(icon: Icon(Icons.work), text: "Professionnel"),
-            Tab(icon: Icon(Icons.settings), text: "Paramètres"),
+            Tab(icon: Icon(Icons.settings), text: "Parametres"),
             Tab(icon: Icon(Icons.bar_chart), text: "Mes Stats"),
           ],
         ),
@@ -132,7 +124,7 @@ class _FormateurProfilePageState extends State<FormateurProfilePage>
                         child: TextField(
                           controller: _prenomController,
                           decoration: const InputDecoration(
-                            labelText: 'Prénom',
+                            labelText: 'Prenom',
                             border: OutlineInputBorder(),
                             prefixIcon: Icon(Icons.person_outline),
                           ),
@@ -191,7 +183,7 @@ class _FormateurProfilePageState extends State<FormateurProfilePage>
       padding: const EdgeInsets.all(16),
       child: Column(
         children: [
-          // Expérience
+          // ExpÃ©rience
           Card(
             child: Padding(
               padding: const EdgeInsets.all(16),
@@ -216,7 +208,7 @@ class _FormateurProfilePageState extends State<FormateurProfilePage>
                   TextField(
                     controller: _specialitesController,
                     decoration: const InputDecoration(
-                      labelText: 'Spécialités',
+                      labelText: 'Spécialité',
                       border: OutlineInputBorder(),
                       prefixIcon: Icon(Icons.stars),
                     ),
@@ -227,7 +219,7 @@ class _FormateurProfilePageState extends State<FormateurProfilePage>
                     controller: _experienceController,
                     maxLines: 5,
                     decoration: const InputDecoration(
-                      labelText: 'Expérience détaillée',
+                      labelText: 'Expériance détaillée',
                       border: OutlineInputBorder(),
                       prefixIcon: Icon(Icons.history_edu),
                     ),
@@ -273,7 +265,7 @@ class _FormateurProfilePageState extends State<FormateurProfilePage>
                   TextField(
                     controller: _websiteController,
                     decoration: const InputDecoration(
-                      labelText: 'Site Web / Portfolio',
+                      labelText: 'Site Web ',
                       border: OutlineInputBorder(),
                       prefixIcon: Icon(Icons.web),
                     ),
@@ -335,7 +327,7 @@ class _FormateurProfilePageState extends State<FormateurProfilePage>
                     Colors.orange,
                   ),
                   _buildCertificationItem(
-                    "Pédagogie Numérique",
+                    "Pédagoge Numérque",
                     "Université de Yaoundé",
                     "2022",
                     Icons.school,
@@ -350,7 +342,7 @@ class _FormateurProfilePageState extends State<FormateurProfilePage>
     );
   }
 
-  /// Onglet Paramètres
+  /// Onglet ParamÃ¨tres
   Widget _buildSettingsTab() {
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16),
@@ -409,7 +401,7 @@ class _FormateurProfilePageState extends State<FormateurProfilePage>
           ),
           const SizedBox(height: 20),
 
-          // Confidentialité
+          // ConfidentialitÃ©
           Card(
             child: Padding(
               padding: const EdgeInsets.all(16),
@@ -487,6 +479,17 @@ class _FormateurProfilePageState extends State<FormateurProfilePage>
                     label: const Text("Exporter mes données"),
                     style: ElevatedButton.styleFrom(
                       backgroundColor: Colors.green,
+                      foregroundColor: Colors.white,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+
+                  ElevatedButton.icon(
+                    onPressed: _logout,
+                    icon: const Icon(Icons.logout),
+                    label: const Text("Se déconnecter"),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.orange,
                       foregroundColor: Colors.white,
                     ),
                   ),
@@ -591,4 +594,35 @@ class _FormateurProfilePageState extends State<FormateurProfilePage>
   void _changePassword() {}
   void _exportData() {}
   void _deleteAccount() {}
+
+  void _logout() {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: const Text('Déconnexion'),
+          content: const Text('Êtes-vous sûr de vouloir vous déconnecter ?'),
+          actions: [
+            TextButton(
+              onPressed: () {
+                Navigator.of(context).pop(); // Fermer la dialog
+              },
+              child: const Text('Annuler'),
+            ),
+            TextButton(
+              onPressed: () {
+                Navigator.of(context).pop(); // Fermer la dialog
+                // Rediriger vers login_page
+                Navigator.of(context).pushNamedAndRemoveUntil(
+                  '/login',
+                  (Route<dynamic> route) => false,
+                );
+              },
+              child: const Text('Se déconnecter'),
+            ),
+          ],
+        );
+      },
+    );
+  }
 }

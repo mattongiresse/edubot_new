@@ -23,7 +23,7 @@ class _QuizManagementPageState extends State<QuizManagementPage>
 
   String _selectedCourse = '';
   List<String> _myCourses = [];
-  List<QuizQuestion> _questions = [];
+  final List<QuizQuestion> _questions = [];
   bool _isCreating = false;
 
   @override
@@ -782,7 +782,7 @@ class _QuizManagementPageState extends State<QuizManagementPage>
                             ],
                           ),
                         );
-                      }).toList(),
+                      }),
                     ],
                   ),
                 ),
@@ -1106,7 +1106,7 @@ class _QuestionDialogState extends State<_QuestionDialog> {
                     ],
                   ),
                 );
-              }).toList(),
+              }),
 
               const SizedBox(height: 16),
               TextField(

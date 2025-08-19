@@ -21,8 +21,8 @@ class _QuizManagementPageState extends State<QuizManagementPage>
   final TextEditingController _durationController = TextEditingController();
   final TextEditingController _attemptsController = TextEditingController();
 
-  String _selectedCourse = '';
-  List<String> _myCourses = [];
+  String _selectedCourseId = '';
+  List<Map<String, dynamic>> _myCourses = [];
   final List<QuizQuestion> _questions = [];
   bool _isCreating = false;
 
@@ -37,19 +37,34 @@ class _QuizManagementPageState extends State<QuizManagementPage>
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) return;
 
-    final coursesSnapshot = await FirebaseFirestore.instance
-        .collection('courses')
-        .where('formateurId', isEqualTo: user.uid)
-        .get();
+    try {
+      final coursesSnapshot = await FirebaseFirestore.instance
+          .collection('courses')
+          .where('formateurId', isEqualTo: user.uid)
+          .get();
 
-    setState(() {
-      _myCourses = coursesSnapshot.docs
-          .map((doc) => doc.data()['title'] as String)
-          .toList();
-      if (_myCourses.isNotEmpty) {
-        _selectedCourse = _myCourses.first;
+      if (mounted) {
+        setState(() {
+          _myCourses = coursesSnapshot.docs
+              .map(
+                (doc) => {
+                  'id': doc.id,
+                  'title': doc.data()['title'] as String? ?? 'Sans titre',
+                },
+              )
+              .toList();
+          if (_myCourses.isNotEmpty) {
+            _selectedCourseId = _myCourses.first['id'] ?? '';
+          }
+        });
       }
-    });
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Erreur lors du chargement des cours: $e')),
+        );
+      }
+    }
   }
 
   @override
@@ -154,7 +169,9 @@ class _QuizManagementPageState extends State<QuizManagementPage>
                     const SizedBox(height: 16),
 
                     DropdownButtonFormField<String>(
-                      value: _selectedCourse.isEmpty ? null : _selectedCourse,
+                      value: _selectedCourseId.isEmpty
+                          ? null
+                          : _selectedCourseId,
                       decoration: const InputDecoration(
                         labelText: 'Cours associé',
                         border: OutlineInputBorder(),
@@ -162,14 +179,17 @@ class _QuizManagementPageState extends State<QuizManagementPage>
                       ),
                       items: _myCourses
                           .map(
-                            (course) => DropdownMenuItem(
-                              value: course,
-                              child: Text(course),
+                            (course) => DropdownMenuItem<String>(
+                              value: course['id'] as String?,
+                              child: Text(course['title'] as String),
                             ),
                           )
                           .toList(),
-                      onChanged: (val) =>
-                          setState(() => _selectedCourse = val!),
+                      onChanged: (val) {
+                        if (mounted) {
+                          setState(() => _selectedCourseId = val ?? '');
+                        }
+                      },
                       validator: (val) =>
                           val == null ? 'Sélectionnez un cours' : null,
                     ),
@@ -358,7 +378,9 @@ class _QuizManagementPageState extends State<QuizManagementPage>
                   ],
                   onSelected: (value) {
                     if (value == 'delete') {
-                      setState(() => _questions.removeAt(index));
+                      if (mounted) {
+                        setState(() => _questions.removeAt(index));
+                      }
                     } else if (value == 'edit') {
                       _editQuestion(index);
                     }
@@ -646,7 +668,9 @@ class _QuizManagementPageState extends State<QuizManagementPage>
       context: context,
       builder: (context) => _QuestionDialog(
         onSave: (question) {
-          setState(() => _questions.add(question));
+          if (mounted) {
+            setState(() => _questions.add(question));
+          }
         },
       ),
     );
@@ -658,7 +682,9 @@ class _QuizManagementPageState extends State<QuizManagementPage>
       builder: (context) => _QuestionDialog(
         existingQuestion: _questions[index],
         onSave: (question) {
-          setState(() => _questions[index] = question);
+          if (mounted) {
+            setState(() => _questions[index] = question);
+          }
         },
       ),
     );
@@ -667,64 +693,87 @@ class _QuizManagementPageState extends State<QuizManagementPage>
   Future<void> _saveQuiz() async {
     if (!_quizFormKey.currentState!.validate()) return;
     if (_questions.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Ajoutez au moins une question')),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Ajoutez au moins une question')),
+        );
+      }
       return;
     }
 
-    setState(() => _isCreating = true);
+    if (mounted) {
+      setState(() => _isCreating = true);
+    }
 
     try {
       final user = FirebaseAuth.instance.currentUser!;
+      String selectedCourseTitle = 'Sans cours';
+      if (_myCourses.isNotEmpty && _selectedCourseId.isNotEmpty) {
+        selectedCourseTitle =
+            _myCourses.firstWhere(
+              (course) => course['id'] == _selectedCourseId,
+              orElse: () => {'title': 'Sans titre'},
+            )['title'] ??
+            'Sans titre';
+      }
 
       await FirebaseFirestore.instance.collection('quizzes').add({
         'title': _quizTitleController.text.trim(),
         'description': _quizDescriptionController.text.trim(),
-        'course': _selectedCourse,
-        'duration': int.parse(_durationController.text),
-        'maxAttempts': int.parse(_attemptsController.text),
+        'course': selectedCourseTitle,
+        'courseId': _selectedCourseId,
+        'duration': int.tryParse(_durationController.text) ?? 0,
+        'maxAttempts': int.tryParse(_attemptsController.text) ?? 1,
         'formateurId': user.uid,
         'questions': _questions.map((q) => q.toMap()).toList(),
         'createdAt': FieldValue.serverTimestamp(),
         'isActive': true,
       });
 
-      // Réinitialiser le formulaire
-      _quizTitleController.clear();
-      _quizDescriptionController.clear();
-      _durationController.clear();
-      _attemptsController.clear();
-      setState(() {
-        _questions.clear();
-        if (_myCourses.isNotEmpty) _selectedCourse = _myCourses.first;
-      });
+      if (mounted) {
+        // Réinitialiser le formulaire
+        _quizTitleController.clear();
+        _quizDescriptionController.clear();
+        _durationController.clear();
+        _attemptsController.clear();
+        setState(() {
+          _questions.clear();
+          if (_myCourses.isNotEmpty)
+            _selectedCourseId = _myCourses.first['id'] ?? '';
+        });
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Quiz créé avec succès ! 🎉'),
-          backgroundColor: Colors.green,
-        ),
-      );
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Quiz créé avec succès ! 🎉'),
+            backgroundColor: Colors.green,
+          ),
+        );
 
-      // Changer vers l'onglet "Mes Quiz"
-      _tabController.animateTo(1);
+        // Changer vers l'onglet "Mes Quiz"
+        _tabController.animateTo(1);
+      }
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Erreur: $e'), backgroundColor: Colors.red),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Erreur: $e'), backgroundColor: Colors.red),
+        );
+      }
     } finally {
-      setState(() => _isCreating = false);
+      if (mounted) {
+        setState(() => _isCreating = false);
+      }
     }
   }
 
   void _previewQuiz() {
     if (_questions.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Ajoutez au moins une question pour prévisualiser'),
-        ),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Ajoutez au moins une question pour prévisualiser'),
+          ),
+        );
+      }
       return;
     }
 
@@ -807,10 +856,14 @@ class _QuizManagementPageState extends State<QuizManagementPage>
   ) {
     switch (action) {
       case 'view':
-        _viewQuizResults(quizId, quizData);
+        if (mounted) {
+          _tabController.animateTo(2);
+        }
         break;
       case 'edit':
-        _editQuiz(quizId, quizData);
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Fonctionnalité d\'édition à venir')),
+        );
         break;
       case 'duplicate':
         _duplicateQuiz(quizData);
@@ -822,13 +875,9 @@ class _QuizManagementPageState extends State<QuizManagementPage>
   }
 
   void _viewQuizResults(String quizId, Map<String, dynamic> quizData) {
-    _tabController.animateTo(2);
-  }
-
-  void _editQuiz(String quizId, Map<String, dynamic> quizData) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Fonctionnalité d\'édition à venir')),
-    );
+    if (mounted) {
+      _tabController.animateTo(2);
+    }
   }
 
   Future<void> _duplicateQuiz(Map<String, dynamic> quizData) async {
@@ -843,19 +892,23 @@ class _QuizManagementPageState extends State<QuizManagementPage>
           .collection('quizzes')
           .add(duplicatedData);
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Quiz dupliqué avec succès'),
-          backgroundColor: Colors.green,
-        ),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Quiz dupliqué avec succès'),
+            backgroundColor: Colors.green,
+          ),
+        );
+      }
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Erreur lors de la duplication: $e'),
-          backgroundColor: Colors.red,
-        ),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Erreur lors de la duplication: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
     }
   }
 
@@ -885,19 +938,23 @@ class _QuizManagementPageState extends State<QuizManagementPage>
             .collection('quizzes')
             .doc(quizId)
             .delete();
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Quiz supprimé avec succès'),
-            backgroundColor: Colors.green,
-          ),
-        );
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Quiz supprimé avec succès'),
+              backgroundColor: Colors.green,
+            ),
+          );
+        }
       } catch (e) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Erreur lors de la suppression: $e'),
-            backgroundColor: Colors.red,
-          ),
-        );
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Erreur lors de la suppression: $e'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
       }
     }
   }
@@ -1091,8 +1148,11 @@ class _QuestionDialogState extends State<_QuestionDialog> {
                       Radio<int>(
                         value: index,
                         groupValue: _correctAnswerIndex,
-                        onChanged: (value) =>
-                            setState(() => _correctAnswerIndex = value!),
+                        onChanged: (value) {
+                          if (mounted) {
+                            setState(() => _correctAnswerIndex = value!);
+                          }
+                        },
                       ),
                       Expanded(
                         child: TextField(

@@ -2,7 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'home_page.dart';
-import 'formateur_dashboard_page.dart'; // Import corrigé
+import 'formateur_dashboard_page.dart';
+import 'admin_dashboard_page.dart'; // Import du dashboard admin
 
 class RegisterPage extends StatefulWidget {
   const RegisterPage({super.key});
@@ -45,25 +46,38 @@ class _RegisterPageState extends State<RegisterPage> {
 
         // Redirection selon le rôle avec les bons constructeurs
         if (!mounted) return;
-        if (statut == 'Formateur') {
-          Navigator.pushReplacement(
-            context,
-            MaterialPageRoute(
-              builder: (context) => FormateurDashboardPage(userName: userName),
-            ),
-          );
-        } else {
-          Navigator.pushReplacement(
-            context,
-            MaterialPageRoute(
-              builder: (context) =>
-                  HomePage(userName: userName, userRole: statut),
-            ),
-          );
+
+        switch (statut) {
+          case 'Administrateur':
+            Navigator.pushReplacement(
+              context,
+              MaterialPageRoute(
+                builder: (context) => AdminDashboardPage(adminName: userName),
+              ),
+            );
+            break;
+          case 'Formateur':
+            Navigator.pushReplacement(
+              context,
+              MaterialPageRoute(
+                builder: (context) =>
+                    FormateurDashboardPage(userName: userName),
+              ),
+            );
+            break;
+          default: // Étudiant
+            Navigator.pushReplacement(
+              context,
+              MaterialPageRoute(
+                builder: (context) =>
+                    HomePage(userName: userName, userRole: statut),
+              ),
+            );
+            break;
         }
       } on FirebaseAuthException catch (e) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(e.message ?? 'Erreur lors de linscription')),
+          SnackBar(content: Text(e.message ?? 'Erreur lors de l\'inscription')),
         );
       }
     }
@@ -110,7 +124,7 @@ class _RegisterPageState extends State<RegisterPage> {
               ),
               const SizedBox(height: 15),
 
-              // Statut
+              // Statut - AVEC ADMINISTRATEUR
               DropdownButtonFormField<String>(
                 value: statut,
                 items: const [
@@ -119,6 +133,10 @@ class _RegisterPageState extends State<RegisterPage> {
                     value: 'Formateur',
                     child: Text('Formateur'),
                   ),
+                  DropdownMenuItem(
+                    value: 'Administrateur',
+                    child: Text('Administrateur'),
+                  ),
                 ],
                 onChanged: (val) => setState(() => statut = val!),
                 decoration: const InputDecoration(
@@ -126,6 +144,8 @@ class _RegisterPageState extends State<RegisterPage> {
                   labelStyle: TextStyle(color: Colors.black),
                   border: OutlineInputBorder(),
                 ),
+                validator: (val) =>
+                    val == null ? 'Sélectionnez un statut' : null,
               ),
               const SizedBox(height: 15),
 

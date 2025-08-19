@@ -317,8 +317,8 @@ class _HomePageState extends State<HomePage> {
       items:
           [
             'assets/images/student.png',
-            'assets/images/student2.png',
-            'assets/images/student3.png',
+            'assets/images/learning.png',
+            'assets/images/books.png',
           ].map((imagePath) {
             return ClipRRect(
               borderRadius: BorderRadius.circular(15),

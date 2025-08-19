@@ -17,7 +17,6 @@ class _FormateurProfilePageState extends State<FormateurProfilePage>
   final TextEditingController _nomController = TextEditingController();
   final TextEditingController _emailController = TextEditingController();
   final TextEditingController _bioController = TextEditingController();
-
   final TextEditingController _specialitesController = TextEditingController();
   final TextEditingController _experienceController = TextEditingController();
   final TextEditingController _linkedinController = TextEditingController();
@@ -35,7 +34,7 @@ class _FormateurProfilePageState extends State<FormateurProfilePage>
     super.initState();
     _tabController = TabController(length: 4, vsync: this);
 
-    // Simuler des donnÃ©es utilisateur
+    // Simuler des données utilisateur
     _prenomController.text = " ";
     _nomController.text = " ";
     _emailController.text = " ";
@@ -183,7 +182,7 @@ class _FormateurProfilePageState extends State<FormateurProfilePage>
       padding: const EdgeInsets.all(16),
       child: Column(
         children: [
-          // ExpÃ©rience
+          // Expérience
           Card(
             child: Padding(
               padding: const EdgeInsets.all(16),
@@ -342,7 +341,7 @@ class _FormateurProfilePageState extends State<FormateurProfilePage>
     );
   }
 
-  /// Onglet ParamÃ¨tres
+  /// Onglet Paramètres
   Widget _buildSettingsTab() {
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16),
@@ -401,7 +400,7 @@ class _FormateurProfilePageState extends State<FormateurProfilePage>
           ),
           const SizedBox(height: 20),
 
-          // ConfidentialitÃ©
+          // Confidentialité
           Card(
             child: Padding(
               padding: const EdgeInsets.all(16),
@@ -598,25 +597,26 @@ class _FormateurProfilePageState extends State<FormateurProfilePage>
   void _logout() {
     showDialog(
       context: context,
-      builder: (BuildContext context) {
+      builder: (BuildContext dialogContext) {
         return AlertDialog(
           title: const Text('Déconnexion'),
           content: const Text('Êtes-vous sûr de vouloir vous déconnecter ?'),
           actions: [
             TextButton(
               onPressed: () {
-                Navigator.of(context).pop(); // Fermer la dialog
+                Navigator.of(dialogContext).pop(); // Fermer la dialog
               },
               child: const Text('Annuler'),
             ),
             TextButton(
               onPressed: () {
-                Navigator.of(context).pop(); // Fermer la dialog
-                // Rediriger vers login_page
-                Navigator.of(context).pushNamedAndRemoveUntil(
-                  '/login',
-                  (Route<dynamic> route) => false,
-                );
+                Navigator.of(dialogContext).pop(); // Fermer la dialog
+                if (mounted) {
+                  Navigator.of(context).pushNamedAndRemoveUntil(
+                    '/login',
+                    (Route<dynamic> route) => false,
+                  );
+                }
               },
               child: const Text('Se déconnecter'),
             ),
@@ -624,5 +624,19 @@ class _FormateurProfilePageState extends State<FormateurProfilePage>
         );
       },
     );
+  }
+
+  @override
+  void dispose() {
+    _tabController.dispose();
+    _prenomController.dispose();
+    _nomController.dispose();
+    _emailController.dispose();
+    _bioController.dispose();
+    _specialitesController.dispose();
+    _experienceController.dispose();
+    _linkedinController.dispose();
+    _websiteController.dispose();
+    super.dispose();
   }
 }

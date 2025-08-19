@@ -90,69 +90,64 @@ class _StudentQuizPageState extends State<StudentQuizPage>
           return data['courseId'] as String;
         }).toList();
 
-        // Récupérer les formateurs de ces cours
+        if (courseIds.isEmpty) {
+          return const Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(Icons.quiz_outlined, size: 80, color: Colors.grey),
+                SizedBox(height: 16),
+                Text(
+                  'Aucun quiz disponible',
+                  style: TextStyle(fontSize: 18, color: Colors.grey),
+                ),
+                Text(
+                  'Vos formateurs n\'ont pas encore créé de quiz',
+                  style: TextStyle(color: Colors.grey),
+                ),
+              ],
+            ),
+          );
+        }
+
         return StreamBuilder<QuerySnapshot>(
           stream: FirebaseFirestore.instance
-              .collection('courses')
-              .where(
-                FieldPath.documentId,
-                whereIn: courseIds.isEmpty ? [''] : courseIds,
-              )
+              .collection('quizzes')
+              .where('courseId', whereIn: courseIds)
+              .where('isActive', isEqualTo: true)
+              .orderBy('createdAt', descending: true)
               .snapshots(),
-          builder: (context, courseSnapshot) {
-            if (!courseSnapshot.hasData) {
-              return const Center(child: CircularProgressIndicator());
-            }
-
-            final formateurIds = courseSnapshot.data!.docs.map((doc) {
-              final data = doc.data() as Map<String, dynamic>;
-              return data['formateurId'] as String;
-            }).toList();
-
-            if (formateurIds.isEmpty) {
-              return const Center(child: Text('Aucun quiz disponible'));
-            }
-
-            return StreamBuilder<QuerySnapshot>(
-              stream: FirebaseFirestore.instance
-                  .collection('quizzes')
-                  .where('formateurId', whereIn: formateurIds)
-                  .where('isActive', isEqualTo: true)
-                  .orderBy('createdAt', descending: true)
-                  .snapshots(),
-              builder: (context, quizSnapshot) {
-                if (!quizSnapshot.hasData || quizSnapshot.data!.docs.isEmpty) {
-                  return const Center(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(Icons.quiz_outlined, size: 80, color: Colors.grey),
-                        SizedBox(height: 16),
-                        Text(
-                          'Aucun quiz disponible',
-                          style: TextStyle(fontSize: 18, color: Colors.grey),
-                        ),
-                        Text(
-                          'Vos formateurs n\'ont pas encore créé de quiz',
-                          style: TextStyle(color: Colors.grey),
-                        ),
-                      ],
+          builder: (context, quizSnapshot) {
+            if (!quizSnapshot.hasData || quizSnapshot.data!.docs.isEmpty) {
+              return const Center(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(Icons.quiz_outlined, size: 80, color: Colors.grey),
+                    SizedBox(height: 16),
+                    Text(
+                      'Aucun quiz disponible',
+                      style: TextStyle(fontSize: 18, color: Colors.grey),
                     ),
-                  );
-                }
+                    Text(
+                      'Vos formateurs n\'ont pas encore créé de quiz',
+                      style: TextStyle(color: Colors.grey),
+                    ),
+                  ],
+                ),
+              );
+            }
 
-                final quizzes = quizSnapshot.data!.docs;
+            final quizzes = quizSnapshot.data!.docs;
 
-                return ListView.builder(
-                  padding: const EdgeInsets.all(16),
-                  itemCount: quizzes.length,
-                  itemBuilder: (context, index) {
-                    final quiz = quizzes[index];
-                    final data = quiz.data() as Map<String, dynamic>;
+            return ListView.builder(
+              padding: const EdgeInsets.all(16),
+              itemCount: quizzes.length,
+              itemBuilder: (context, index) {
+                final quiz = quizzes[index];
+                final data = quiz.data() as Map<String, dynamic>;
 
-                    return _buildQuizCard(quiz.id, data);
-                  },
-                );
+                return _buildQuizCard(quiz.id, data);
               },
             );
           },

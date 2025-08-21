@@ -127,13 +127,13 @@ class _FormateurDashboardPageState extends State<FormateurDashboardPage> {
         backgroundColor: Colors.deepPurple,
         foregroundColor: Colors.white,
         elevation: 2,
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.logout),
-            onPressed: () => _logout(context),
-            tooltip: 'Déconnexion',
-          ),
-        ],
+        // actions: [
+        //   IconButton(
+        //     icon: const Icon(Icons.logout),
+        //     onPressed: () => _logout(context),
+        //     tooltip: 'Déconnexion',
+        //   ),
+        // ],
       ),
       body: _isLoadingStats
           ? const Center(child: CircularProgressIndicator())

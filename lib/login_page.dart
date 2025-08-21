@@ -1,4 +1,5 @@
 import 'package:edubot_new/formateur_dashboard_page.dart';
+import 'package:edubot_new/admin_dashboard_page.dart'; // Import du dashboard admin existant
 import 'package:edubot_new/reset_password_page.dart';
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -15,7 +16,7 @@ class LoginPage extends StatefulWidget {
 
 class _LoginPageState extends State<LoginPage> {
   bool _obscurePassword = true;
-  bool _isLoading = false; // 📌 Indicateur de chargement
+  bool _isLoading = false;
   final TextEditingController _emailController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
 
@@ -40,27 +41,38 @@ class _LoginPageState extends State<LoginPage> {
         String userRole = userDoc.get('statut') ?? 'Étudiant';
         String userName = '${userDoc.get('prenom')} ${userDoc.get('nom')}';
 
-        // 3️⃣ Redirection selon le rôle
+        // 3️⃣ Redirection selon le rôle (AVEC ADMINISTRATEUR)
         if (!mounted) return;
 
-        if (userRole == 'Formateur') {
-          Navigator.pushReplacement(
-            context,
-            MaterialPageRoute(
-              builder: (context) => FormateurDashboardPage(userName: userName),
-            ),
-          );
-        } else {
-          Navigator.pushReplacement(
-            context,
-            MaterialPageRoute(
-              builder: (context) =>
-                  HomePage(userName: userName, userRole: userRole),
-            ),
-          );
+        switch (userRole) {
+          case 'Administrateur':
+            Navigator.pushReplacement(
+              context,
+              MaterialPageRoute(
+                builder: (context) => AdminDashboardPage(adminName: userName),
+              ),
+            );
+            break;
+          case 'Formateur':
+            Navigator.pushReplacement(
+              context,
+              MaterialPageRoute(
+                builder: (context) =>
+                    FormateurDashboardPage(userName: userName),
+              ),
+            );
+            break;
+          default: // Étudiant
+            Navigator.pushReplacement(
+              context,
+              MaterialPageRoute(
+                builder: (context) =>
+                    HomePage(userName: userName, userRole: userRole),
+              ),
+            );
+            break;
         }
       } else {
-        // Cas où le document n'existe pas dans Firestore
         throw Exception('Profil utilisateur introuvable');
       }
     } on FirebaseAuthException catch (e) {
@@ -96,7 +108,6 @@ class _LoginPageState extends State<LoginPage> {
     }
   }
 
-  // 📌 Messages d'erreur en français
   String _getErrorMessage(String errorCode) {
     switch (errorCode) {
       case 'user-not-found':
@@ -117,7 +128,7 @@ class _LoginPageState extends State<LoginPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color.fromARGB(162, 135, 155, 138),
+      backgroundColor: const Color.fromARGB(161, 216, 228, 218),
       body: Center(
         child: SingleChildScrollView(
           padding: const EdgeInsets.symmetric(horizontal: 25),
@@ -137,7 +148,7 @@ class _LoginPageState extends State<LoginPage> {
               const SizedBox(height: 30),
               TextField(
                 controller: _emailController,
-                enabled: !_isLoading, // 📌 Désactive pendant le chargement
+                enabled: !_isLoading,
                 style: const TextStyle(color: Colors.black),
                 decoration: InputDecoration(
                   labelText: "Email",
@@ -151,7 +162,7 @@ class _LoginPageState extends State<LoginPage> {
               const SizedBox(height: 20),
               TextField(
                 controller: _passwordController,
-                enabled: !_isLoading, // 📌 Désactive pendant le chargement
+                enabled: !_isLoading,
                 obscureText: _obscurePassword,
                 style: const TextStyle(color: Colors.black),
                 decoration: InputDecoration(

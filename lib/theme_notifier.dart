@@ -10,7 +10,7 @@ class ThemeNotifier extends ChangeNotifier {
   ThemeData get themeData => _isDarkMode ? ThemeData.dark() : ThemeData.light();
 
   ThemeNotifier() {
-    _isDarkMode = true; // valeur par défaut
+    _isDarkMode = false; // valeur par défaut = clair
     _loadFromPrefs();
   }
 
@@ -26,7 +26,8 @@ class ThemeNotifier extends ChangeNotifier {
 
   _loadFromPrefs() async {
     await _initPrefs();
-    _isDarkMode = _prefs.getBool(key) ?? true;
+    // Si rien dans SharedPreferences, utiliser false (clair)
+    _isDarkMode = _prefs.getBool(key) ?? false;
     notifyListeners();
   }
 

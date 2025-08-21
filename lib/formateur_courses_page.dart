@@ -3,8 +3,9 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:file_picker/file_picker.dart';
-import 'dart:io' show File; // 📱 Import File pour mobile/desktop
-import 'package:flutter/foundation.dart'; // pour kIsWeb
+import 'package:flutter/foundation.dart';
+import 'dart:io';
+import 'student_courses_page.dart';
 
 class FormateurCoursesPage extends StatefulWidget {
   const FormateurCoursesPage({super.key});
@@ -20,12 +21,10 @@ class _FormateurCoursesPageState extends State<FormateurCoursesPage> {
 
   String _selectedCategory = 'Informatique';
 
-  // 🔥 SOLUTION: Utiliser PlatformFile au lieu de File
   PlatformFile? _selectedPdfFile;
   bool _isUploading = false;
   String? _uploadedPdfUrl;
 
-  // Liste des catégories
   final List<String> _categories = [
     'Informatique',
     'Mathématiques',
@@ -41,28 +40,40 @@ class _FormateurCoursesPageState extends State<FormateurCoursesPage> {
         type: FileType.custom,
         allowedExtensions: ['pdf'],
         allowMultiple: false,
-        withData: kIsWeb, // 🔥 Important: charger les données sur web
+        withData: kIsWeb,
       );
 
       if (result != null && result.files.isNotEmpty) {
         setState(() {
-          _selectedPdfFile = result.files.first; // PlatformFile au lieu de File
+          _selectedPdfFile = result.files.first;
         });
-
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('PDF sélectionné: ${result.files.first.name}'),
+              backgroundColor: Colors.green,
+            ),
+          );
+        }
+      } else {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Aucun fichier sélectionné'),
+              backgroundColor: Colors.orange,
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('PDF sélectionné: ${result.files.first.name}'),
-            backgroundColor: Colors.green,
+            content: Text('Erreur lors de la sélection: $e'),
+            backgroundColor: Colors.red,
           ),
         );
       }
-    } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Erreur lors de la sélection: $e'),
-          backgroundColor: Colors.red,
-        ),
-      );
     }
   }
 
@@ -72,51 +83,57 @@ class _FormateurCoursesPageState extends State<FormateurCoursesPage> {
     try {
       setState(() => _isUploading = true);
 
-      final user = FirebaseAuth.instance.currentUser!;
-      final fileName =
-          'courses/${user.uid}/${DateTime.now().millisecondsSinceEpoch}_${_titleController.text.replaceAll(' ', '_')}.pdf';
+      final user = FirebaseAuth.instance.currentUser;
+      if (user == null) {
+        throw Exception('Utilisateur non connecté');
+      }
 
+      final title = _titleController.text.trim().isEmpty
+          ? 'untitled_course'
+          : _titleController.text.trim().replaceAll(' ', '_');
+      final fileName =
+          'courses/${user.uid}/${DateTime.now().millisecondsSinceEpoch}_$title.pdf';
       final ref = FirebaseStorage.instance.ref().child(fileName);
 
       UploadTask uploadTask;
 
       if (kIsWeb) {
-        // 🌐 Pour le WEB: utiliser les bytes
-        if (_selectedPdfFile!.bytes != null) {
-          uploadTask = ref.putData(
-            _selectedPdfFile!.bytes!,
-            SettableMetadata(contentType: 'application/pdf'),
-          );
-        } else {
-          throw Exception('Impossible de lire le fichier sur web');
+        if (_selectedPdfFile!.bytes == null ||
+            _selectedPdfFile!.bytes!.isEmpty) {
+          throw Exception('Fichier non chargé correctement sur le web');
         }
+        uploadTask = ref.putData(
+          _selectedPdfFile!.bytes!,
+          SettableMetadata(contentType: 'application/pdf'),
+        );
       } else {
-        // 📱 Pour MOBILE: utiliser le chemin de fichier
-        if (_selectedPdfFile!.path != null) {
-          final file = File(_selectedPdfFile!.path!);
-          uploadTask = ref.putFile(file);
-        } else {
-          throw Exception('Chemin de fichier non disponible sur mobile');
+        if (_selectedPdfFile!.path == null || _selectedPdfFile!.path!.isEmpty) {
+          throw Exception('Chemin de fichier non disponible');
         }
+        uploadTask = ref.putFile(File(_selectedPdfFile!.path!));
       }
 
-      final snapshot = await uploadTask;
+      final snapshot = await uploadTask.whenComplete(() {});
       final downloadUrl = await snapshot.ref.getDownloadURL();
 
-      setState(() {
-        _isUploading = false;
-        _uploadedPdfUrl = downloadUrl;
-      });
+      if (mounted) {
+        setState(() {
+          _isUploading = false;
+          _uploadedPdfUrl = downloadUrl;
+        });
+      }
 
       return downloadUrl;
     } catch (e) {
-      setState(() => _isUploading = false);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Erreur upload: $e'),
-          backgroundColor: Colors.red,
-        ),
-      );
+      if (mounted) {
+        setState(() => _isUploading = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Erreur d\'upload: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
       return null;
     }
   }
@@ -125,33 +142,56 @@ class _FormateurCoursesPageState extends State<FormateurCoursesPage> {
     if (!_formKey.currentState!.validate()) return;
 
     if (_selectedPdfFile == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Veuillez sélectionner un fichier PDF'),
-          backgroundColor: Colors.orange,
-        ),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Veuillez sélectionner un fichier PDF'),
+            backgroundColor: Colors.orange,
+          ),
+        );
+      }
       return;
     }
 
     final user = FirebaseAuth.instance.currentUser;
-    if (user == null) return;
+    if (user == null) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Utilisateur non connecté'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+      return;
+    }
 
     try {
-      // Upload du PDF
       final pdfUrl = await _uploadPdfToStorage();
-      if (pdfUrl == null) return;
+      if (pdfUrl == null) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Échec de l\'upload du PDF'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+        return;
+      }
 
-      // Récupération des infos formateur
       final userDoc = await FirebaseFirestore.instance
           .collection('users')
           .doc(user.uid)
           .get();
+      if (!userDoc.exists) {
+        throw Exception('Document utilisateur introuvable');
+      }
 
       final formateurNom =
-          '${userDoc.data()?['prenom']} ${userDoc.data()?['nom']}';
+          '${userDoc.data()?['prenom'] ?? 'Inconnu'} ${userDoc.data()?['nom'] ?? 'Inconnu'}';
 
-      // Ajout du cours dans Firestore
+      // ✅ Toujours la même collection: "courses"
       await FirebaseFirestore.instance.collection('courses').add({
         'title': _titleController.text.trim(),
         'description': _descriptionController.text.trim(),
@@ -161,56 +201,62 @@ class _FormateurCoursesPageState extends State<FormateurCoursesPage> {
         'formateurNom': formateurNom,
         'createdAt': FieldValue.serverTimestamp(),
         'isActive': true,
-        'fileSize': _selectedPdfFile!.size, // Taille du fichier
-        'fileName': _selectedPdfFile!.name, // Nom du fichier
+        'fileSize': _selectedPdfFile!.size,
+        'fileName': _selectedPdfFile!.name,
       });
 
-      // Reset du formulaire
       _titleController.clear();
       _descriptionController.clear();
-      setState(() {
-        _selectedPdfFile = null;
-        _uploadedPdfUrl = null;
-        _selectedCategory = 'Informatique';
-      });
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Cours ajouté avec succès ! 🎉'),
-          backgroundColor: Colors.green,
-        ),
-      );
+      if (mounted) {
+        setState(() {
+          _selectedPdfFile = null;
+          _uploadedPdfUrl = null;
+          _selectedCategory = 'Informatique';
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Cours ajouté avec succès ! 🎉'),
+            backgroundColor: Colors.green,
+          ),
+        );
+      }
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Erreur: $e'), backgroundColor: Colors.red),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Erreur lors de l\'ajout: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
     }
   }
 
   Future<void> _deleteCourse(String courseId, String pdfUrl) async {
     try {
-      // Supprimer le fichier PDF du Storage
       await FirebaseStorage.instance.refFromURL(pdfUrl).delete();
-
-      // Supprimer le document Firestore
       await FirebaseFirestore.instance
-          .collection('courses')
+          .collection('courses') // ✅ corrigé
           .doc(courseId)
           .delete();
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Cours supprimé avec succès'),
-          backgroundColor: Colors.green,
-        ),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Cours supprimé avec succès'),
+            backgroundColor: Colors.green,
+          ),
+        );
+      }
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Erreur lors de la suppression: $e'),
-          backgroundColor: Colors.red,
-        ),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Erreur lors de la suppression: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
     }
   }
 
@@ -226,7 +272,7 @@ class _FormateurCoursesPageState extends State<FormateurCoursesPage> {
       ),
       body: Column(
         children: [
-          // 📚 Section d'ajout de cours
+          // Formulaire ajout cours
           Container(
             margin: const EdgeInsets.all(16),
             padding: const EdgeInsets.all(20),
@@ -281,7 +327,6 @@ class _FormateurCoursesPageState extends State<FormateurCoursesPage> {
                   ),
                   const SizedBox(height: 15),
 
-                  // Titre
                   TextFormField(
                     controller: _titleController,
                     decoration: const InputDecoration(
@@ -294,7 +339,6 @@ class _FormateurCoursesPageState extends State<FormateurCoursesPage> {
                   ),
                   const SizedBox(height: 15),
 
-                  // Description
                   TextFormField(
                     controller: _descriptionController,
                     maxLines: 3,
@@ -308,7 +352,6 @@ class _FormateurCoursesPageState extends State<FormateurCoursesPage> {
                   ),
                   const SizedBox(height: 15),
 
-                  // Catégorie
                   DropdownButtonFormField<String>(
                     value: _selectedCategory,
                     decoration: const InputDecoration(
@@ -329,7 +372,6 @@ class _FormateurCoursesPageState extends State<FormateurCoursesPage> {
                   ),
                   const SizedBox(height: 15),
 
-                  // Sélection PDF - AMÉLIORÉE
                   Container(
                     padding: const EdgeInsets.all(12),
                     decoration: BoxDecoration(
@@ -397,7 +439,6 @@ class _FormateurCoursesPageState extends State<FormateurCoursesPage> {
                   ),
                   const SizedBox(height: 20),
 
-                  // Bouton d'ajout
                   ElevatedButton(
                     onPressed: _isUploading ? null : _addCourse,
                     style: ElevatedButton.styleFrom(
@@ -431,7 +472,7 @@ class _FormateurCoursesPageState extends State<FormateurCoursesPage> {
             ),
           ),
 
-          // 📋 Liste des cours créés
+          // Liste des cours
           Expanded(
             child: Container(
               margin: const EdgeInsets.symmetric(horizontal: 16),
@@ -456,7 +497,7 @@ class _FormateurCoursesPageState extends State<FormateurCoursesPage> {
                   Expanded(
                     child: StreamBuilder<QuerySnapshot>(
                       stream: FirebaseFirestore.instance
-                          .collection('courses')
+                          .collection('courses') // ✅ corrigé
                           .where(
                             'formateurId',
                             isEqualTo: FirebaseAuth.instance.currentUser?.uid,
@@ -543,7 +584,7 @@ class _FormateurCoursesPageState extends State<FormateurCoursesPage> {
                                           ),
                                         ),
                                         const SizedBox(width: 12),
-                                        Icon(
+                                        const Icon(
                                           Icons.picture_as_pdf,
                                           size: 14,
                                           color: Colors.red,

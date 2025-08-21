@@ -86,7 +86,7 @@ class _RegisterPageState extends State<RegisterPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color.fromARGB(255, 137, 140, 143),
+      backgroundColor: const Color.fromARGB(255, 222, 228, 233),
       appBar: AppBar(
         title: const Text('Créer un compte'),
         backgroundColor: Colors.blueAccent,
@@ -128,14 +128,26 @@ class _RegisterPageState extends State<RegisterPage> {
               DropdownButtonFormField<String>(
                 value: statut,
                 items: const [
-                  DropdownMenuItem(value: 'Étudiant', child: Text('Étudiant')),
+                  DropdownMenuItem(
+                    value: 'Étudiant',
+                    child: Text(
+                      'Étudiant',
+                      style: TextStyle(color: Colors.black),
+                    ),
+                  ),
                   DropdownMenuItem(
                     value: 'Formateur',
-                    child: Text('Formateur'),
+                    child: Text(
+                      'Formateur',
+                      style: TextStyle(color: Colors.black),
+                    ),
                   ),
                   DropdownMenuItem(
                     value: 'Administrateur',
-                    child: Text('Administrateur'),
+                    child: Text(
+                      'Administrateur',
+                      style: TextStyle(color: Colors.black),
+                    ),
                   ),
                 ],
                 onChanged: (val) => setState(() => statut = val!),

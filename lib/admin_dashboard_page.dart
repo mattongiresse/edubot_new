@@ -7,6 +7,7 @@ import 'admin_system_settings_page.dart';
 import 'admin_payments_page.dart';
 import 'admin_support_page.dart';
 import 'admin_analytics_page.dart';
+import 'login_page.dart';
 
 class AdminDashboardPage extends StatefulWidget {
   final String adminName;
@@ -30,28 +31,20 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
 
   Future<void> _loadSystemStatistics() async {
     try {
-      // Charger les statistiques système
-      final usersSnapshot = await FirebaseFirestore.instance
-          .collection('users')
-          .get();
+      final snapshots = await Future.wait([
+        FirebaseFirestore.instance.collection('users').get(),
+        FirebaseFirestore.instance.collection('courses').get(),
+        FirebaseFirestore.instance.collection('quizzes').get(),
+        FirebaseFirestore.instance.collection('enrollments').get(),
+        FirebaseFirestore.instance.collection('payments').get(),
+      ]);
 
-      final coursesSnapshot = await FirebaseFirestore.instance
-          .collection('courses')
-          .get();
+      final usersSnapshot = snapshots[0];
+      final coursesSnapshot = snapshots[1];
+      final quizzesSnapshot = snapshots[2];
+      final enrollmentsSnapshot = snapshots[3];
+      final paymentsSnapshot = snapshots[4];
 
-      final quizzesSnapshot = await FirebaseFirestore.instance
-          .collection('quizzes')
-          .get();
-
-      final enrollmentsSnapshot = await FirebaseFirestore.instance
-          .collection('enrollments')
-          .get();
-
-      final paymentsSnapshot = await FirebaseFirestore.instance
-          .collection('payments')
-          .get();
-
-      // Calculer les statistiques
       final totalUsers = usersSnapshot.docs.length;
       final totalStudents = usersSnapshot.docs
           .where((doc) => doc.data()['statut'] == 'Étudiant')
@@ -59,17 +52,14 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
       final totalInstructors = usersSnapshot.docs
           .where((doc) => doc.data()['statut'] == 'Formateur')
           .length;
-
       final totalCourses = coursesSnapshot.docs.length;
       final activeCourses = coursesSnapshot.docs
           .where((doc) => doc.data()['isActive'] ?? true)
           .length;
-
       final totalRevenue = paymentsSnapshot.docs.fold<double>(0, (sum, doc) {
         return sum + (doc.data()['amount'] ?? 0.0);
       });
 
-      // Activités récentes (simulation)
       _recentActivities = [
         {
           'type': 'user_registration',
@@ -111,18 +101,22 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
           'totalEnrollments': enrollmentsSnapshot.docs.length,
           'totalQuizzes': quizzesSnapshot.docs.length,
           'totalRevenue': totalRevenue,
-          'monthlyGrowth': 12, // Simulation
-          'systemHealth': 98, // Simulation
+          'monthlyGrowth': 12,
+          'systemHealth': 98,
         };
         _isLoading = false;
       });
     } catch (e) {
       setState(() => _isLoading = false);
-      print('Erreur lors du chargement des statistiques: $e');
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Erreur lors du chargement des statistiques: $e'),
+        ),
+      );
     }
   }
 
-  Future<void> _logout(BuildContext context) async {
+  Future<void> _logout() async {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
@@ -161,7 +155,7 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
       backgroundColor: const Color(0xFFF8F9FA),
       appBar: AppBar(
         title: const Text(
-          '🔧 Administration EduBot',
+          'Administration EduBot',
           style: TextStyle(fontWeight: FontWeight.bold),
         ),
         backgroundColor: const Color(0xFF1B1E23),
@@ -170,15 +164,11 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
         actions: [
           IconButton(
             icon: const Icon(Icons.notifications_outlined),
-            onPressed: () {
-              // Afficher les notifications
-              _showNotifications();
-            },
+            onPressed: () => _showNotifications(),
           ),
           IconButton(
             icon: const Icon(Icons.logout),
-            onPressed: () => _logout(context),
-            tooltip: 'Déconnexion',
+            onPressed: () => _logout(),
           ),
         ],
       ),
@@ -189,28 +179,34 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // Header avec salutations
                   _buildWelcomeHeader(),
                   const SizedBox(height: 24),
-
-                  // Métriques principales
                   _buildMainMetrics(),
                   const SizedBox(height: 24),
-
-                  // Actions rapides
                   _buildQuickActions(),
-                  const SizedBox(height: 24),
-
-                  // Graphiques et activités récentes
-                  Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      // Activités récentes
-                      Expanded(flex: 2, child: _buildRecentActivities()),
-                      const SizedBox(width: 16),
-                      // Santé du système
-                      Expanded(child: _buildSystemHealth()),
-                    ],
+                  const SizedBox(height: 32),
+                  LayoutBuilder(
+                    builder: (context, constraints) {
+                      if (constraints.maxWidth < 768) {
+                        return Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            _buildRecentActivities(),
+                            const SizedBox(height: 24),
+                            _buildSystemHealth(),
+                          ],
+                        );
+                      } else {
+                        return Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Expanded(flex: 2, child: _buildRecentActivities()),
+                            const SizedBox(width: 16),
+                            Expanded(child: _buildSystemHealth()),
+                          ],
+                        );
+                      }
+                    },
                   ),
                 ],
               ),
@@ -220,14 +216,14 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
 
   Widget _buildWelcomeHeader() {
     return Container(
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
         gradient: const LinearGradient(
           colors: [Color(0xFF667EEA), Color(0xFF764BA2)],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(12),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withOpacity(0.1),
@@ -239,19 +235,19 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
       child: Row(
         children: [
           Container(
-            width: 60,
-            height: 60,
+            width: 48,
+            height: 48,
             decoration: const BoxDecoration(
               color: Colors.white,
               shape: BoxShape.circle,
             ),
             child: const Icon(
               Icons.admin_panel_settings,
-              size: 30,
+              size: 24,
               color: Color(0xFF667EEA),
             ),
           ),
-          const SizedBox(width: 16),
+          const SizedBox(width: 12),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -260,23 +256,23 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
                   'Bonjour, ${widget.adminName} 👋',
                   style: const TextStyle(
                     color: Colors.white,
-                    fontSize: 24,
+                    fontSize: 20,
                     fontWeight: FontWeight.bold,
                   ),
                 ),
                 const SizedBox(height: 4),
-                const Text(
+                Text(
                   'Voici un aperçu de votre système EduBot',
-                  style: TextStyle(color: Colors.white70, fontSize: 16),
+                  style: const TextStyle(color: Colors.white70, fontSize: 14),
                 ),
               ],
             ),
           ),
           Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
             decoration: BoxDecoration(
               color: Colors.white.withOpacity(0.2),
-              borderRadius: BorderRadius.circular(20),
+              borderRadius: BorderRadius.circular(16),
             ),
             child: Text(
               '${_systemStats['systemHealth'] ?? 0}% Santé',
@@ -292,41 +288,62 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
   }
 
   Widget _buildMainMetrics() {
-    return GridView.count(
-      shrinkWrap: true,
-      physics: const NeverScrollableScrollPhysics(),
-      crossAxisCount: 4,
-      crossAxisSpacing: 16,
-      mainAxisSpacing: 16,
-      childAspectRatio: 1.2,
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _buildMetricCard(
-          'Utilisateurs Total',
-          '${_systemStats['totalUsers'] ?? 0}',
-          Icons.people,
-          const Color(0xFF4F46E5),
-          '+${_systemStats['monthlyGrowth'] ?? 0}% ce mois',
+        const Text(
+          '📈 Métriques Principales',
+          style: TextStyle(
+            fontSize: 20,
+            fontWeight: FontWeight.bold,
+            color: Color(0xFF1F2937),
+          ),
         ),
-        _buildMetricCard(
-          'Étudiants Actifs',
-          '${_systemStats['totalStudents'] ?? 0}',
-          Icons.school,
-          const Color(0xFF059669),
-          '${_systemStats['totalEnrollments'] ?? 0} inscriptions',
-        ),
-        _buildMetricCard(
-          'Formateurs',
-          '${_systemStats['totalInstructors'] ?? 0}',
-          Icons.person_outline,
-          const Color(0xFFDC2626),
-          '${_systemStats['activeCourses'] ?? 0} cours actifs',
-        ),
-        _buildMetricCard(
-          'Revenus',
-          '${_formatCurrency(_systemStats['totalRevenue'] ?? 0)}',
-          Icons.attach_money,
-          const Color(0xFFF59E0B),
-          'FCFA ce mois',
+        const SizedBox(height: 16),
+        LayoutBuilder(
+          builder: (context, constraints) {
+            int crossAxisCount = constraints.maxWidth < 600 ? 2 : 4;
+            double childAspectRatio = constraints.maxWidth < 600 ? 1.5 : 1.3;
+
+            return GridView.count(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              crossAxisCount: crossAxisCount,
+              crossAxisSpacing: 10,
+              mainAxisSpacing: 10,
+              childAspectRatio: childAspectRatio,
+              children: [
+                _buildMetricCard(
+                  'Utilisateurs Total',
+                  '${_systemStats['totalUsers'] ?? 0}',
+                  '+${_systemStats['monthlyGrowth'] ?? 0}% ce mois',
+                  Icons.people,
+                  const Color(0xFF4F46E5),
+                ),
+                _buildMetricCard(
+                  'Étudiants Actifs',
+                  '${_systemStats['totalStudents'] ?? 0}',
+                  '${_systemStats['totalEnrollments'] ?? 0} inscriptions',
+                  Icons.school,
+                  const Color(0xFF059669),
+                ),
+                _buildMetricCard(
+                  'Formateurs',
+                  '${_systemStats['totalInstructors'] ?? 0}',
+                  '${_systemStats['activeCourses'] ?? 0} cours actifs',
+                  Icons.person_outline,
+                  const Color(0xFFDC2626),
+                ),
+                _buildMetricCard(
+                  'Revenus',
+                  '${_formatCurrency(_systemStats['totalRevenue'] ?? 0)}',
+                  'FCFA ce mois',
+                  Icons.attach_money,
+                  const Color(0xFFF59E0B),
+                ),
+              ],
+            );
+          },
         ),
       ],
     );
@@ -335,64 +352,77 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
   Widget _buildMetricCard(
     String title,
     String value,
+    String subtitle,
     IconData icon,
     Color color,
-    String subtitle,
   ) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 10,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(
-                  color: color.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Icon(icon, color: color, size: 20),
+    return InkWell(
+      onTap: () {},
+      borderRadius: BorderRadius.circular(12),
+      child: Container(
+        padding: const EdgeInsets.all(8),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(12),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.05),
+              blurRadius: 10,
+              offset: const Offset(0, 2),
+            ),
+          ],
+          border: Border.all(color: color.withOpacity(0.1)),
+        ),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              padding: const EdgeInsets.all(6),
+              decoration: BoxDecoration(
+                color: color.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(8),
               ),
-              const Spacer(),
-              Icon(Icons.trending_up, color: Colors.green, size: 16),
-            ],
-          ),
-          const SizedBox(height: 12),
-          Text(
-            value,
-            style: const TextStyle(
-              fontSize: 24,
-              fontWeight: FontWeight.bold,
-              color: Color(0xFF1F2937),
+              child: Icon(icon, color: color, size: 18),
             ),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            title,
-            style: TextStyle(
-              fontSize: 12,
-              color: Colors.grey[600],
-              fontWeight: FontWeight.w500,
+            const SizedBox(height: 6),
+            FittedBox(
+              fit: BoxFit.scaleDown,
+              child: Text(
+                value,
+                style: const TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.bold,
+                  color: Color(0xFF1F2937),
+                ),
+              ),
             ),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            subtitle,
-            style: TextStyle(fontSize: 11, color: Colors.grey[500]),
-          ),
-        ],
+            FittedBox(
+              fit: BoxFit.scaleDown,
+              child: Text(
+                title,
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w600,
+                  color: Color(0xFF374151),
+                ),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+            FittedBox(
+              fit: BoxFit.scaleDown,
+              child: Text(
+                subtitle,
+                textAlign: TextAlign.center,
+                style: TextStyle(fontSize: 9, color: Colors.grey[600]),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -410,89 +440,101 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
           ),
         ),
         const SizedBox(height: 16),
-        GridView.count(
-          shrinkWrap: true,
-          physics: const NeverScrollableScrollPhysics(),
-          crossAxisCount: 3,
-          crossAxisSpacing: 16,
-          mainAxisSpacing: 16,
-          childAspectRatio: 1.5,
-          children: [
-            _buildActionCard(
-              'Gestion Utilisateurs',
-              Icons.people_outline,
-              const Color(0xFF8B5CF6),
-              () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (_) => const AdminUsersManagementPage(),
-                  ),
-                );
-              },
-            ),
-            _buildActionCard(
-              'Gestion Cours',
-              Icons.book_outlined,
-              const Color(0xFF06B6D4),
-              () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (_) => const AdminCoursesManagementPage(),
-                  ),
-                );
-              },
-            ),
-            _buildActionCard(
-              'Paramètres Système',
-              Icons.settings_outlined,
-              const Color(0xFF10B981),
-              () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (_) => const AdminSystemSettingsPage(),
-                  ),
-                );
-              },
-            ),
-            _buildActionCard(
-              'Gestion Paiements',
-              Icons.payment_outlined,
-              const Color(0xFFF59E0B),
-              () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (_) => const AdminPaymentsPage()),
-                );
-              },
-            ),
-            _buildActionCard(
-              'Support & Rapports',
-              Icons.support_agent_outlined,
-              const Color(0xFFEF4444),
-              () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (_) => const AdminSupportReportsPage(),
-                  ),
-                );
-              },
-            ),
-            _buildActionCard(
-              'Analytics Avancés',
-              Icons.analytics_outlined,
-              const Color(0xFF6366F1),
-              () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (_) => const AdminAnalyticsPage()),
-                );
-              },
-            ),
-          ],
+        LayoutBuilder(
+          builder: (context, constraints) {
+            int crossAxisCount = constraints.maxWidth < 600 ? 2 : 3;
+            double childAspectRatio = constraints.maxWidth < 600 ? 1.55 : 1.4;
+
+            return GridView.count(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              crossAxisCount: crossAxisCount,
+              crossAxisSpacing: 16,
+              mainAxisSpacing: 16,
+              childAspectRatio: childAspectRatio,
+              clipBehavior: Clip.hardEdge,
+              children: [
+                _buildActionCard(
+                  'Gestion Utilisateurs',
+                  Icons.people_outline,
+                  const Color(0xFF8B5CF6),
+                  () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => const AdminUsersManagementPage(),
+                      ),
+                    );
+                  },
+                ),
+                _buildActionCard(
+                  'Gestion Cours',
+                  Icons.book_outlined,
+                  const Color(0xFF06B6D4),
+                  () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => const AdminCoursesManagementPage(),
+                      ),
+                    );
+                  },
+                ),
+                _buildActionCard(
+                  'Paramètres Système',
+                  Icons.settings_outlined,
+                  const Color(0xFF10B981),
+                  () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => const AdminSystemSettingsPage(),
+                      ),
+                    );
+                  },
+                ),
+                _buildActionCard(
+                  'Gestion Paiements',
+                  Icons.payment_outlined,
+                  const Color(0xFFF59E0B),
+                  () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => const AdminPaymentsPage(),
+                      ),
+                    );
+                  },
+                ),
+                _buildActionCard(
+                  'Support & Rapports',
+                  Icons.support_agent_outlined,
+                  const Color(0xFFEF4444),
+                  () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => const AdminSupportReportsPage(),
+                      ),
+                    );
+                  },
+                ),
+                _buildActionCard(
+                  'Analytics Avancés',
+                  Icons.analytics_outlined,
+                  const Color(0xFF6366F1),
+                  () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => const AdminAnalyticsPage(),
+                      ),
+                    );
+                  },
+                ),
+              ],
+            );
+          },
         ),
       ],
     );
@@ -508,7 +550,7 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
       onTap: onTap,
       borderRadius: BorderRadius.circular(12),
       child: Container(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(6),
         decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(12),
@@ -525,21 +567,26 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Container(
-              padding: const EdgeInsets.all(12),
+              padding: const EdgeInsets.all(10),
               decoration: BoxDecoration(
                 color: color.withOpacity(0.1),
                 borderRadius: BorderRadius.circular(12),
               ),
-              child: Icon(icon, color: color, size: 28),
+              child: Icon(icon, color: color, size: 24),
             ),
-            const SizedBox(height: 12),
-            Text(
-              title,
-              textAlign: TextAlign.center,
-              style: const TextStyle(
-                fontSize: 14,
-                fontWeight: FontWeight.w600,
-                color: Color(0xFF374151),
+            const SizedBox(height: 6),
+            FittedBox(
+              fit: BoxFit.scaleDown,
+              child: Text(
+                title,
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                  color: Color(0xFF374151),
+                ),
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
               ),
             ),
           ],
@@ -665,9 +712,7 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
           _buildHealthItem('API', 99, Colors.green),
           const SizedBox(height: 20),
           ElevatedButton.icon(
-            onPressed: () {
-              // Afficher détails système
-            },
+            onPressed: () {},
             icon: const Icon(Icons.visibility),
             label: const Text('Voir Détails'),
             style: ElevatedButton.styleFrom(

@@ -15,7 +15,6 @@ class ProfilePage extends StatefulWidget {
 }
 
 class _ProfilePageState extends State<ProfilePage> {
-  bool _isDarkTheme = true;
   bool _isNotificationsEnabled = true;
 
   String _displayName = '';
@@ -55,7 +54,6 @@ class _ProfilePageState extends State<ProfilePage> {
             doc.data()?['email'] ?? user.email ?? 'user@example.com';
       });
     } catch (e) {
-      // En cas d’erreur de lecture Firestore
       if (!mounted) return;
       setState(() {
         _displayName = widget.userName;
@@ -96,7 +94,7 @@ class _ProfilePageState extends State<ProfilePage> {
             ),
           ),
           const Divider(),
-          // --- APPEARANCE ---
+          // --- APPARENCE ---
           ListTile(
             leading: const Icon(Icons.palette),
             title: const Text('Apparence'),
@@ -107,9 +105,6 @@ class _ProfilePageState extends State<ProfilePage> {
                   value: themeNotifier.isDarkMode,
                   onChanged: (value) {
                     themeNotifier.toggleTheme();
-                    setState(() {
-                      _isDarkTheme = value;
-                    });
                   },
                   activeColor: Colors.deepPurple,
                 );

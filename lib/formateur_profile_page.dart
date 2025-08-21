@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:firebase_auth/firebase_auth.dart'; // Ajouté pour la déconnexion
 import 'package:fl_chart/fl_chart.dart';
 
 class FormateurProfilePage extends StatefulWidget {
@@ -592,10 +593,15 @@ class _FormateurProfilePageState extends State<FormateurProfilePage>
   void _changeProfilePicture() {}
   void _changePassword() {}
   void _exportData() {}
-  void _deleteAccount() {}
 
-  void _logout() {
-    showDialog(
+  void _deleteAccount() {
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(const SnackBar(content: Text("Supprimer compte")));
+  }
+
+  Future<void> _logout() async {
+    final confirmed = await showDialog<bool>(
       context: context,
       builder: (BuildContext dialogContext) {
         return AlertDialog(
@@ -603,27 +609,34 @@ class _FormateurProfilePageState extends State<FormateurProfilePage>
           content: const Text('Êtes-vous sûr de vouloir vous déconnecter ?'),
           actions: [
             TextButton(
-              onPressed: () {
-                Navigator.of(dialogContext).pop(); // Fermer la dialog
-              },
+              onPressed: () => Navigator.of(dialogContext).pop(false),
               child: const Text('Annuler'),
             ),
             TextButton(
-              onPressed: () {
-                Navigator.of(dialogContext).pop(); // Fermer la dialog
-                if (mounted) {
-                  Navigator.of(context).pushNamedAndRemoveUntil(
-                    '/login',
-                    (Route<dynamic> route) => false,
-                  );
-                }
-              },
+              onPressed: () => Navigator.of(dialogContext).pop(true),
               child: const Text('Se déconnecter'),
             ),
           ],
         );
       },
     );
+
+    if (confirmed == true) {
+      try {
+        await FirebaseAuth.instance.signOut(); // Déconnexion Firebase
+        if (mounted) {
+          Navigator.of(
+            context,
+          ).pushNamedAndRemoveUntil('/login', (Route<dynamic> route) => false);
+        }
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(SnackBar(content: Text('Erreur de déconnexion: $e')));
+        }
+      }
+    }
   }
 
   @override

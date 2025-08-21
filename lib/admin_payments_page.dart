@@ -29,24 +29,38 @@ class _AdminPaymentsPageState extends State<AdminPaymentsPage>
 
   Future<void> _loadPaymentStatistics() async {
     try {
-      // Simuler des données de paiements (en réalité, récupérer de Firestore)
-      await Future.delayed(const Duration(seconds: 1));
-      
-      setState(() {
-        _paymentStats = {
-          'totalRevenue': 2450000,
-          'monthlyRevenue': 850000,
-          'totalTransactions': 1250,
-          'successfulTransactions': 1180,
-          'failedTransactions': 70,
-          'averageTransactionAmount': 1960,
-          'topPaymentMethod': 'Mobile Money',
-          'conversionRate': 94.4,
-        };
-        _isLoadingStats = false;
-      });
+      // Récupérer les statistiques depuis Firestore
+      final snapshot = await FirebaseFirestore.instance
+          .collection('payment_stats')
+          .doc('summary')
+          .get();
+
+      if (snapshot.exists) {
+        setState(() {
+          _paymentStats = snapshot.data() ?? {};
+          _isLoadingStats = false;
+        });
+      } else {
+        // Données par défaut si pas de document
+        setState(() {
+          _paymentStats = {
+            'totalRevenue': 2450000,
+            'monthlyRevenue': 850000,
+            'totalTransactions': 1250,
+            'successfulTransactions': 1180,
+            'failedTransactions': 70,
+            'averageTransactionAmount': 1960,
+            'topPaymentMethod': 'Mobile Money',
+            'conversionRate': 94.4,
+          };
+          _isLoadingStats = false;
+        });
+      }
     } catch (e) {
       setState(() => _isLoadingStats = false);
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Erreur de chargement: $e')));
     }
   }
 
@@ -110,53 +124,48 @@ class _AdminPaymentsPageState extends State<AdminPaymentsPage>
             children: [
               _buildMetricCard(
                 'Revenus Totaux',
-                '${_formatCurrency(_paymentStats['totalRevenue'])}',
+                '${_formatCurrency(_paymentStats['totalRevenue'] ?? 0)}',
                 Icons.account_balance_wallet,
                 Colors.green,
                 '+12% ce mois',
               ),
               _buildMetricCard(
                 'Revenus Mensuels',
-                '${_formatCurrency(_paymentStats['monthlyRevenue'])}',
+                '${_formatCurrency(_paymentStats['monthlyRevenue'] ?? 0)}',
                 Icons.trending_up,
                 Colors.blue,
                 'Ce mois-ci',
               ),
               _buildMetricCard(
                 'Transactions',
-                '${_paymentStats['totalTransactions']}',
+                '${_paymentStats['totalTransactions'] ?? 0}',
                 Icons.receipt,
                 Colors.orange,
-                '${_paymentStats['successfulTransactions']} réussies',
+                '${_paymentStats['successfulTransactions'] ?? 0} réussies',
               ),
               _buildMetricCard(
                 'Taux de Conversion',
-                '${_paymentStats['conversionRate']}%',
+                '${(_paymentStats['conversionRate'] ?? 0).toStringAsFixed(1)}%',
                 Icons.show_chart,
                 Colors.purple,
                 'En amélioration',
               ),
             ],
           ),
-          
+
           const SizedBox(height: 24),
-          
+
           // Graphique des revenus
           Row(
             children: [
-              Expanded(
-                flex: 2,
-                child: _buildRevenueChart(),
-              ),
+              Expanded(flex: 2, child: _buildRevenueChart()),
               const SizedBox(width: 16),
-              Expanded(
-                child: _buildPaymentMethodsChart(),
-              ),
+              Expanded(child: _buildPaymentMethodsChart()),
             ],
           ),
-          
+
           const SizedBox(height: 24),
-          
+
           // Transactions récentes
           _buildRecentTransactions(),
         ],
@@ -196,10 +205,7 @@ class _AdminPaymentsPageState extends State<AdminPaymentsPage>
             const SizedBox(height: 12),
             Text(
               value,
-              style: const TextStyle(
-                fontSize: 20,
-                fontWeight: FontWeight.bold,
-              ),
+              style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 4),
             Text(
@@ -213,10 +219,7 @@ class _AdminPaymentsPageState extends State<AdminPaymentsPage>
             const SizedBox(height: 4),
             Text(
               subtitle,
-              style: TextStyle(
-                color: Colors.grey[500],
-                fontSize: 12,
-              ),
+              style: TextStyle(color: Colors.grey[500], fontSize: 12),
             ),
           ],
         ),
@@ -235,10 +238,7 @@ class _AdminPaymentsPageState extends State<AdminPaymentsPage>
           children: [
             const Text(
               '📈 Évolution des Revenus',
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-              ),
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 20),
             SizedBox(
@@ -270,7 +270,14 @@ class _AdminPaymentsPageState extends State<AdminPaymentsPage>
                       sideTitles: SideTitles(
                         showTitles: true,
                         getTitlesWidget: (value, meta) {
-                          final months = ['Jan', 'Fév', 'Mar', 'Avr', 'Mai', 'Jun'];
+                          final months = [
+                            'Jan',
+                            'Fév',
+                            'Mar',
+                            'Avr',
+                            'Mai',
+                            'Jun',
+                          ];
                           return Text(months[value.toInt()]);
                         },
                       ),
@@ -283,8 +290,12 @@ class _AdminPaymentsPageState extends State<AdminPaymentsPage>
                         },
                       ),
                     ),
-                    topTitles: AxisTitles(sideTitles: SideTitles(showTitles: false)),
-                    rightTitles: AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                    topTitles: AxisTitles(
+                      sideTitles: SideTitles(showTitles: false),
+                    ),
+                    rightTitles: AxisTitles(
+                      sideTitles: SideTitles(showTitles: false),
+                    ),
                   ),
                   gridData: FlGridData(show: true),
                   borderData: FlBorderData(show: false),
@@ -308,10 +319,7 @@ class _AdminPaymentsPageState extends State<AdminPaymentsPage>
           children: [
             const Text(
               '💳 Méthodes de Paiement',
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-              ),
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 20),
             SizedBox(
@@ -375,10 +383,7 @@ class _AdminPaymentsPageState extends State<AdminPaymentsPage>
           Container(
             width: 12,
             height: 12,
-            decoration: BoxDecoration(
-              color: color,
-              shape: BoxShape.circle,
-            ),
+            decoration: BoxDecoration(color: color, shape: BoxShape.circle),
           ),
           const SizedBox(width: 8),
           Text(label, style: const TextStyle(fontSize: 12)),
@@ -398,24 +403,36 @@ class _AdminPaymentsPageState extends State<AdminPaymentsPage>
           children: [
             const Text(
               '🔄 Transactions Récentes',
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-              ),
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 16),
-            ListView.builder(
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              itemCount: 5,
-              itemBuilder: (context, index) {
-                return _buildTransactionItem(
-                  'user_${index + 1}',
-                  'Jean Dupont',
-                  2000,
-                  DateTime.now().subtract(Duration(hours: index)),
-                  index % 2 == 0 ? 'Réussie' : 'En attente',
-                  'Mobile Money',
+            StreamBuilder<QuerySnapshot>(
+              stream: FirebaseFirestore.instance
+                  .collection('transactions')
+                  .orderBy('timestamp', descending: true)
+                  .limit(5)
+                  .snapshots(),
+              builder: (context, snapshot) {
+                if (!snapshot.hasData) {
+                  return const Center(child: CircularProgressIndicator());
+                }
+                final transactions = snapshot.data!.docs;
+                return ListView.builder(
+                  shrinkWrap: true,
+                  physics: const NeverScrollableScrollPhysics(),
+                  itemCount: transactions.length,
+                  itemBuilder: (context, index) {
+                    final data =
+                        transactions[index].data() as Map<String, dynamic>;
+                    return _buildTransactionItem(
+                      data['userId'] ?? 'user_${index + 1}',
+                      data['userName'] ?? 'Utilisateur ${index + 1}',
+                      (data['amount'] ?? 2000) as int,
+                      (data['timestamp'] ?? Timestamp.now()).toDate(),
+                      data['status'] ?? 'Réussie',
+                      data['method'] ?? 'Mobile Money',
+                    );
+                  },
                 );
               },
             ),
@@ -448,21 +465,28 @@ class _AdminPaymentsPageState extends State<AdminPaymentsPage>
                         filled: true,
                         fillColor: Colors.grey[100],
                       ),
-                      onChanged: (value) => setState(() => _searchQuery = value),
+                      onChanged: (value) =>
+                          setState(() => _searchQuery = value),
                     ),
                   ),
                   const SizedBox(width: 12),
-                  _buildFilterDropdown('Status', _selectedStatus, [
-                    'Tous', 'Réussie', 'En attente', 'Échouée', 'Remboursée'
-                  ], (value) => setState(() => _selectedStatus = value)),
+                  _buildFilterDropdown(
+                    'Status',
+                    _selectedStatus,
+                    ['Tous', 'Réussie', 'En attente', 'Échouée', 'Remboursée'],
+                    (value) => setState(() => _selectedStatus = value),
+                  ),
                 ],
               ),
               const SizedBox(height: 12),
               Row(
                 children: [
-                  _buildFilterDropdown('Période', _selectedPeriod, [
-                    '7 jours', '30 jours', '3 mois', '6 mois', '1 an'
-                  ], (value) => setState(() => _selectedPeriod = value)),
+                  _buildFilterDropdown(
+                    'Période',
+                    _selectedPeriod,
+                    ['7 jours', '30 jours', '3 mois', '6 mois', '1 an'],
+                    (value) => setState(() => _selectedPeriod = value),
+                  ),
                   const Spacer(),
                   ElevatedButton.icon(
                     onPressed: _exportTransactions,
@@ -478,29 +502,61 @@ class _AdminPaymentsPageState extends State<AdminPaymentsPage>
             ],
           ),
         ),
-        
+
         // Liste des transactions
-        Expanded(
-          child: _buildTransactionsList(),
-        ),
+        Expanded(child: _buildTransactionsList()),
       ],
     );
   }
 
   Widget _buildTransactionsList() {
-    // Simulation de données - en réalité, utiliser StreamBuilder avec Firestore
-    return ListView.builder(
-      padding: const EdgeInsets.all(16),
-      itemCount: 20,
-      itemBuilder: (context, index) {
-        return _buildTransactionCard(
-          'TX${1000 + index}',
-          'Utilisateur ${index + 1}',
-          2000 + (index * 100),
-          DateTime.now().subtract(Duration(days: index)),
-          index % 4 == 0 ? 'Échouée' : 
-          index % 3 == 0 ? 'En attente' : 'Réussie',
-          index % 2 == 0 ? 'Mobile Money' : 'Orange Money',
+    return StreamBuilder<QuerySnapshot>(
+      stream: FirebaseFirestore.instance
+          .collection('transactions')
+          .where(
+            'status',
+            isEqualTo: _selectedStatus != 'Tous' ? _selectedStatus : null,
+          )
+          .orderBy('timestamp', descending: true)
+          .snapshots(),
+      builder: (context, snapshot) {
+        if (!snapshot.hasData) {
+          return const Center(child: CircularProgressIndicator());
+        }
+        var transactions = snapshot.data!.docs;
+        if (_searchQuery.isNotEmpty) {
+          transactions = transactions.where((doc) {
+            final data = doc.data() as Map<String, dynamic>;
+            return (data['userName']?.toLowerCase().contains(
+                      _searchQuery.toLowerCase(),
+                    ) ??
+                    false) ||
+                (data['transactionId']?.toLowerCase().contains(
+                      _searchQuery.toLowerCase(),
+                    ) ??
+                    false);
+          }).toList();
+        }
+        return ListView.builder(
+          padding: const EdgeInsets.all(16),
+          itemCount: transactions.length,
+          itemBuilder: (context, index) {
+            final data = transactions[index].data() as Map<String, dynamic>;
+            return _buildTransactionCard(
+              data['transactionId'] ?? 'TX${1000 + index}',
+              data['userName'] ?? 'Utilisateur ${index + 1}',
+              (data['amount'] ?? 2000 + (index * 100)) as int,
+              (data['timestamp'] ?? Timestamp.now()).toDate(),
+              data['status'] ??
+                  (index % 4 == 0
+                      ? 'Échouée'
+                      : index % 3 == 0
+                      ? 'En attente'
+                      : 'Réussie'),
+              data['method'] ??
+                  (index % 2 == 0 ? 'Mobile Money' : 'Orange Money'),
+            );
+          },
         );
       },
     );
@@ -515,7 +571,7 @@ class _AdminPaymentsPageState extends State<AdminPaymentsPage>
     String method,
   ) {
     Color statusColor = _getStatusColor(status);
-    
+
     return Card(
       margin: const EdgeInsets.only(bottom: 12),
       elevation: 2,
@@ -523,11 +579,7 @@ class _AdminPaymentsPageState extends State<AdminPaymentsPage>
       child: ListTile(
         leading: CircleAvatar(
           backgroundColor: statusColor.withOpacity(0.1),
-          child: Icon(
-            _getStatusIcon(status),
-            color: statusColor,
-            size: 20,
-          ),
+          child: Icon(_getStatusIcon(status), color: statusColor, size: 20),
         ),
         title: Row(
           children: [
@@ -541,10 +593,7 @@ class _AdminPaymentsPageState extends State<AdminPaymentsPage>
                   ),
                   Text(
                     'ID: $transactionId',
-                    style: TextStyle(
-                      color: Colors.grey[600],
-                      fontSize: 12,
-                    ),
+                    style: TextStyle(color: Colors.grey[600], fontSize: 12),
                   ),
                 ],
               ),
@@ -561,10 +610,7 @@ class _AdminPaymentsPageState extends State<AdminPaymentsPage>
                 ),
                 Text(
                   _formatDate(date),
-                  style: TextStyle(
-                    color: Colors.grey[600],
-                    fontSize: 12,
-                  ),
+                  style: TextStyle(color: Colors.grey[600], fontSize: 12),
                 ),
               ],
             ),
@@ -590,10 +636,7 @@ class _AdminPaymentsPageState extends State<AdminPaymentsPage>
             const SizedBox(width: 8),
             Text(
               method,
-              style: TextStyle(
-                color: Colors.grey[600],
-                fontSize: 12,
-              ),
+              style: TextStyle(color: Colors.grey[600], fontSize: 12),
             ),
           ],
         ),
@@ -647,7 +690,7 @@ class _AdminPaymentsPageState extends State<AdminPaymentsPage>
     String method,
   ) {
     Color statusColor = _getStatusColor(status);
-    
+
     return Padding(
       padding: const EdgeInsets.only(bottom: 12),
       child: Row(
@@ -668,10 +711,7 @@ class _AdminPaymentsPageState extends State<AdminPaymentsPage>
                 ),
                 Text(
                   '$method • ${_formatDate(date)}',
-                  style: TextStyle(
-                    color: Colors.grey[600],
-                    fontSize: 12,
-                  ),
+                  style: TextStyle(color: Colors.grey[600], fontSize: 12),
                 ),
               ],
             ),
@@ -752,14 +792,14 @@ class _AdminPaymentsPageState extends State<AdminPaymentsPage>
               ),
             ],
           ),
-          
+
           const SizedBox(height: 24),
-          
+
           // Plans d'abonnement
           _buildSubscriptionPlans(),
-          
+
           const SizedBox(height: 24),
-          
+
           // Abonnés récents
           _buildRecentSubscribers(),
         ],
@@ -780,10 +820,7 @@ class _AdminPaymentsPageState extends State<AdminPaymentsPage>
               children: [
                 const Text(
                   '📋 Plans d\'Abonnement',
-                  style: TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                  ),
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                 ),
                 const Spacer(),
                 ElevatedButton.icon(
@@ -798,17 +835,42 @@ class _AdminPaymentsPageState extends State<AdminPaymentsPage>
               ],
             ),
             const SizedBox(height: 16),
-            
-            _buildPlanCard('Mensuel', '500 FCFA', 'Accès complet 1 mois', 450, Colors.blue),
-            _buildPlanCard('Trimestriel', '1000 FCFA', 'Accès complet 3 mois', 320, Colors.green),
-            _buildPlanCard('Semestriel', '2000 FCFA', 'Accès complet 6 mois', 180, Colors.orange),
+            StreamBuilder<QuerySnapshot>(
+              stream: FirebaseFirestore.instance
+                  .collection('subscription_plans')
+                  .snapshots(),
+              builder: (context, snapshot) {
+                if (!snapshot.hasData) {
+                  return const Center(child: CircularProgressIndicator());
+                }
+                final plans = snapshot.data!.docs;
+                return Column(
+                  children: plans.map((doc) {
+                    final data = doc.data() as Map<String, dynamic>;
+                    return _buildPlanCard(
+                      data['name'] ?? 'Plan inconnu',
+                      '${_formatCurrency(data['price'] ?? 0)}',
+                      data['description'] ?? 'Aucune description',
+                      data['subscribers'] ?? 0,
+                      _getPlanColor(data['name'] ?? ''),
+                    );
+                  }).toList(),
+                );
+              },
+            ),
           ],
         ),
       ),
     );
   }
 
-  Widget _buildPlanCard(String name, String price, String description, int subscribers, Color color) {
+  Widget _buildPlanCard(
+    String name,
+    String price,
+    String description,
+    int subscribers,
+    Color color,
+  ) {
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       padding: const EdgeInsets.all(16),
@@ -825,7 +887,11 @@ class _AdminPaymentsPageState extends State<AdminPaymentsPage>
               color: color,
               borderRadius: BorderRadius.circular(8),
             ),
-            child: const Icon(Icons.workspace_premium, color: Colors.white, size: 20),
+            child: const Icon(
+              Icons.workspace_premium,
+              color: Colors.white,
+              size: 20,
+            ),
           ),
           const SizedBox(width: 12),
           Expanded(
@@ -854,7 +920,10 @@ class _AdminPaymentsPageState extends State<AdminPaymentsPage>
                   fontSize: 16,
                 ),
               ),
-              Text('$subscribers abonnés', style: TextStyle(color: Colors.grey[600], fontSize: 12)),
+              Text(
+                '$subscribers abonnés',
+                style: TextStyle(color: Colors.grey[600], fontSize: 12),
+              ),
             ],
           ),
           const SizedBox(width: 8),
@@ -887,6 +956,19 @@ class _AdminPaymentsPageState extends State<AdminPaymentsPage>
     );
   }
 
+  Color _getPlanColor(String name) {
+    switch (name.toLowerCase()) {
+      case 'mensuel':
+        return Colors.blue;
+      case 'trimestriel':
+        return Colors.green;
+      case 'semestriel':
+        return Colors.orange;
+      default:
+        return Colors.grey;
+    }
+  }
+
   Widget _buildRecentSubscribers() {
     return Card(
       elevation: 2,
@@ -898,21 +980,38 @@ class _AdminPaymentsPageState extends State<AdminPaymentsPage>
           children: [
             const Text(
               '👥 Nouveaux Abonnés',
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-              ),
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 16),
-            ListView.builder(
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              itemCount: 5,
-              itemBuilder: (context, index) {
-                return _buildSubscriberItem(
-                  'Utilisateur ${index + 1}',
-                  index % 3 == 0 ? 'Mensuel' : index % 2 == 0 ? 'Trimestriel' : 'Semestriel',
-                  DateTime.now().subtract(Duration(days: index)),
+            StreamBuilder<QuerySnapshot>(
+              stream: FirebaseFirestore.instance
+                  .collection('subscribers')
+                  .orderBy('subscriptionDate', descending: true)
+                  .limit(5)
+                  .snapshots(),
+              builder: (context, snapshot) {
+                if (!snapshot.hasData) {
+                  return const Center(child: CircularProgressIndicator());
+                }
+                final subscribers = snapshot.data!.docs;
+                return ListView.builder(
+                  shrinkWrap: true,
+                  physics: const NeverScrollableScrollPhysics(),
+                  itemCount: subscribers.length,
+                  itemBuilder: (context, index) {
+                    final data =
+                        subscribers[index].data() as Map<String, dynamic>;
+                    return _buildSubscriberItem(
+                      data['userName'] ?? 'Utilisateur ${index + 1}',
+                      data['plan'] ??
+                          (index % 3 == 0
+                              ? 'Mensuel'
+                              : index % 2 == 0
+                              ? 'Trimestriel'
+                              : 'Semestriel'),
+                      (data['subscriptionDate'] ?? Timestamp.now()).toDate(),
+                    );
+                  },
                 );
               },
             ),
@@ -922,7 +1021,11 @@ class _AdminPaymentsPageState extends State<AdminPaymentsPage>
     );
   }
 
-  Widget _buildSubscriberItem(String userName, String plan, DateTime subscriptionDate) {
+  Widget _buildSubscriberItem(
+    String userName,
+    String plan,
+    DateTime subscriptionDate,
+  ) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 12),
       child: Row(
@@ -942,20 +1045,14 @@ class _AdminPaymentsPageState extends State<AdminPaymentsPage>
                 ),
                 Text(
                   'Plan $plan',
-                  style: TextStyle(
-                    color: Colors.grey[600],
-                    fontSize: 12,
-                  ),
+                  style: TextStyle(color: Colors.grey[600], fontSize: 12),
                 ),
               ],
             ),
           ),
           Text(
             _formatDate(subscriptionDate),
-            style: TextStyle(
-              color: Colors.grey[600],
-              fontSize: 12,
-            ),
+            style: TextStyle(color: Colors.grey[600], fontSize: 12),
           ),
         ],
       ),
@@ -986,7 +1083,7 @@ class _AdminPaymentsPageState extends State<AdminPaymentsPage>
               Expanded(
                 child: ElevatedButton.icon(
                   onPressed: _generateYearlyReport,
-                  icon: const Icon(Icons.calendar_view_year),
+                  icon: const Icon(Icons.calendar_today),
                   label: const Text('Rapport Annuel'),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: Colors.green,
@@ -997,13 +1094,15 @@ class _AdminPaymentsPageState extends State<AdminPaymentsPage>
               ),
             ],
           ),
-          
+
           const SizedBox(height: 24),
-          
+
           // Rapports automatisés
           Card(
             elevation: 2,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
             child: Padding(
               padding: const EdgeInsets.all(20),
               child: Column(
@@ -1011,13 +1110,9 @@ class _AdminPaymentsPageState extends State<AdminPaymentsPage>
                 children: [
                   const Text(
                     '📊 Rapports Automatisés',
-                    style: TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                    ),
+                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                   ),
                   const SizedBox(height: 16),
-                  
                   _buildReportItem(
                     'Rapport Quotidien',
                     'Généré automatiquement à 23h59',
@@ -1043,13 +1138,15 @@ class _AdminPaymentsPageState extends State<AdminPaymentsPage>
               ),
             ),
           ),
-          
+
           const SizedBox(height: 24),
-          
+
           // Analyse des tendances
           Card(
             elevation: 2,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
             child: Padding(
               padding: const EdgeInsets.all(20),
               child: Column(
@@ -1057,17 +1154,37 @@ class _AdminPaymentsPageState extends State<AdminPaymentsPage>
                 children: [
                   const Text(
                     '📈 Analyse des Tendances',
-                    style: TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                    ),
+                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                   ),
                   const SizedBox(height: 16),
-                  
-                  _buildTrendItem('Revenus', '+23%', 'vs mois dernier', Colors.green, true),
-                  _buildTrendItem('Nouveaux abonnés', '+15%', 'vs mois dernier', Colors.blue, true),
-                  _buildTrendItem('Taux de churn', '-5%', 'amélioration', Colors.orange, false),
-                  _buildTrendItem('Panier moyen', '+8%', 'augmentation', Colors.purple, true),
+                  _buildTrendItem(
+                    'Revenus',
+                    '+23%',
+                    'vs mois dernier',
+                    Colors.green,
+                    true,
+                  ),
+                  _buildTrendItem(
+                    'Nouveaux abonnés',
+                    '+15%',
+                    'vs mois dernier',
+                    Colors.blue,
+                    true,
+                  ),
+                  _buildTrendItem(
+                    'Taux de churn',
+                    '-5%',
+                    'amélioration',
+                    Colors.orange,
+                    false,
+                  ),
+                  _buildTrendItem(
+                    'Panier moyen',
+                    '+8%',
+                    'augmentation',
+                    Colors.purple,
+                    true,
+                  ),
                 ],
               ),
             ),
@@ -1077,7 +1194,13 @@ class _AdminPaymentsPageState extends State<AdminPaymentsPage>
     );
   }
 
-  Widget _buildReportItem(String title, String schedule, IconData icon, Color color, bool isActive) {
+  Widget _buildReportItem(
+    String title,
+    String schedule,
+    IconData icon,
+    Color color,
+    bool isActive,
+  ) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 12),
       child: Row(
@@ -1101,10 +1224,7 @@ class _AdminPaymentsPageState extends State<AdminPaymentsPage>
                 ),
                 Text(
                   schedule,
-                  style: TextStyle(
-                    color: Colors.grey[600],
-                    fontSize: 12,
-                  ),
+                  style: TextStyle(color: Colors.grey[600], fontSize: 12),
                 ),
               ],
             ),
@@ -1112,7 +1232,16 @@ class _AdminPaymentsPageState extends State<AdminPaymentsPage>
           Switch(
             value: isActive,
             onChanged: (value) {
-              // Logique pour activer/désactiver le rapport
+              setState(() {
+                // Logique pour activer/désactiver le rapport (simulée ici)
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text(
+                      'Rapport $title ${value ? "activé" : "désactivé"}',
+                    ),
+                  ),
+                );
+              });
             },
             activeColor: color,
           ),
@@ -1121,7 +1250,13 @@ class _AdminPaymentsPageState extends State<AdminPaymentsPage>
     );
   }
 
-  Widget _buildTrendItem(String metric, String change, String period, Color color, bool isPositive) {
+  Widget _buildTrendItem(
+    String metric,
+    String change,
+    String period,
+    Color color,
+    bool isPositive,
+  ) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 12),
       child: Row(
@@ -1151,10 +1286,7 @@ class _AdminPaymentsPageState extends State<AdminPaymentsPage>
               ),
               Text(
                 period,
-                style: TextStyle(
-                  color: Colors.grey[600],
-                  fontSize: 12,
-                ),
+                style: TextStyle(color: Colors.grey[600], fontSize: 12),
               ),
             ],
           ),
@@ -1180,10 +1312,10 @@ class _AdminPaymentsPageState extends State<AdminPaymentsPage>
           value: value,
           hint: Text(label),
           items: options
-              .map((option) => DropdownMenuItem(
-                    value: option,
-                    child: Text(option),
-                  ))
+              .map(
+                (option) =>
+                    DropdownMenuItem(value: option, child: Text(option)),
+              )
               .toList(),
           onChanged: (newValue) => onChanged(newValue!),
         ),
@@ -1267,7 +1399,9 @@ class _AdminPaymentsPageState extends State<AdminPaymentsPage>
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('Annuler Transaction'),
-        content: Text('Êtes-vous sûr de vouloir annuler la transaction $transactionId ?'),
+        content: Text(
+          'Êtes-vous sûr de vouloir annuler la transaction $transactionId ?',
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
@@ -1276,6 +1410,10 @@ class _AdminPaymentsPageState extends State<AdminPaymentsPage>
           ElevatedButton(
             onPressed: () {
               Navigator.pop(context);
+              FirebaseFirestore.instance
+                  .collection('transactions')
+                  .doc(transactionId)
+                  .update({'status': 'Annulée'});
               ScaffoldMessenger.of(context).showSnackBar(
                 const SnackBar(
                   content: Text('Transaction annulée'),
@@ -1318,6 +1456,10 @@ class _AdminPaymentsPageState extends State<AdminPaymentsPage>
           ElevatedButton(
             onPressed: () {
               Navigator.pop(context);
+              FirebaseFirestore.instance
+                  .collection('transactions')
+                  .doc(transactionId)
+                  .update({'status': 'Remboursée'});
               ScaffoldMessenger.of(context).showSnackBar(
                 const SnackBar(
                   content: Text('Remboursement initié'),
@@ -1333,38 +1475,47 @@ class _AdminPaymentsPageState extends State<AdminPaymentsPage>
   }
 
   void _showAddPlanDialog() {
+    final _nameController = TextEditingController();
+    final _priceController = TextEditingController();
+    final _durationController = TextEditingController();
+    final _descriptionController = TextEditingController();
+
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('Nouveau Plan d\'Abonnement'),
-        content: const Column(
+        content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             TextField(
-              decoration: InputDecoration(
+              controller: _nameController,
+              decoration: const InputDecoration(
                 labelText: 'Nom du plan',
                 border: OutlineInputBorder(),
               ),
             ),
-            SizedBox(height: 12),
+            const SizedBox(height: 12),
             TextField(
-              decoration: InputDecoration(
+              controller: _priceController,
+              decoration: const InputDecoration(
                 labelText: 'Prix (FCFA)',
                 border: OutlineInputBorder(),
               ),
               keyboardType: TextInputType.number,
             ),
-            SizedBox(height: 12),
+            const SizedBox(height: 12),
             TextField(
-              decoration: InputDecoration(
+              controller: _durationController,
+              decoration: const InputDecoration(
                 labelText: 'Durée (jours)',
                 border: OutlineInputBorder(),
               ),
               keyboardType: TextInputType.number,
             ),
-            SizedBox(height: 12),
+            const SizedBox(height: 12),
             TextField(
-              decoration: InputDecoration(
+              controller: _descriptionController,
+              decoration: const InputDecoration(
                 labelText: 'Description',
                 border: OutlineInputBorder(),
               ),
@@ -1379,6 +1530,16 @@ class _AdminPaymentsPageState extends State<AdminPaymentsPage>
           ),
           ElevatedButton(
             onPressed: () {
+              final planData = {
+                'name': _nameController.text,
+                'price': int.tryParse(_priceController.text) ?? 0,
+                'duration': int.tryParse(_durationController.text) ?? 0,
+                'description': _descriptionController.text,
+                'subscribers': 0,
+              };
+              FirebaseFirestore.instance
+                  .collection('subscription_plans')
+                  .add(planData);
               Navigator.pop(context);
               ScaffoldMessenger.of(context).showSnackBar(
                 const SnackBar(
@@ -1401,6 +1562,7 @@ class _AdminPaymentsPageState extends State<AdminPaymentsPage>
         backgroundColor: Colors.blue,
       ),
     );
+    // Logique d'exportation (par ex. générer un fichier CSV)
   }
 
   void _exportTransactions() {
@@ -1410,6 +1572,7 @@ class _AdminPaymentsPageState extends State<AdminPaymentsPage>
         backgroundColor: Colors.blue,
       ),
     );
+    // Logique d'exportation avec filtres
   }
 
   void _generateMonthlyReport() {
@@ -1419,6 +1582,7 @@ class _AdminPaymentsPageState extends State<AdminPaymentsPage>
         backgroundColor: Colors.blue,
       ),
     );
+    // Logique pour générer un rapport mensuel
   }
 
   void _generateYearlyReport() {
@@ -1428,6 +1592,7 @@ class _AdminPaymentsPageState extends State<AdminPaymentsPage>
         backgroundColor: Colors.green,
       ),
     );
+    // Logique pour générer un rapport annuel
   }
 
   String _formatCurrency(int amount) {
@@ -1444,73 +1609,4 @@ class _AdminPaymentsPageState extends State<AdminPaymentsPage>
     _searchController.dispose();
     super.dispose();
   }
-}import 'package:flutter/material.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:fl_chart/fl_chart.dart';
-
-class AdminPaymentsPage extends StatefulWidget {
-  const AdminPaymentsPage({super.key});
-
-  @override
-  State<AdminPaymentsPage> createState() => _AdminPaymentsPageState();
 }
-
-class _AdminPaymentsPageState extends State<AdminPaymentsPage>
-    with TickerProviderStateMixin {
-  late TabController _tabController;
-  final TextEditingController _searchController = TextEditingController();
-  String _searchQuery = '';
-  String _selectedPeriod = '30 jours';
-  String _selectedStatus = 'Tous';
-
-  Map<String, dynamic> _paymentStats = {};
-  bool _isLoadingStats = true;
-
-  @override
-  void initState() {
-    super.initState();
-    _tabController = TabController(length: 4, vsync: this);
-    _loadPaymentStatistics();
-  }
-
-  Future<void> _loadPaymentStatistics() async {
-    try {
-      // Simuler des données de paiements (en réalité, récupérer de Firestore)
-      await Future.delayed(const Duration(seconds: 1));
-      
-      setState(() {
-        _paymentStats = {
-          'totalRevenue': 2450000,
-          'monthlyRevenue': 850000,
-          'totalTransactions': 1250,
-          'successfulTransactions': 1180,
-          'failedTransactions': 70,
-          'averageTransactionAmount': 1960,
-          'topPaymentMethod': 'Mobile Money',
-          'conversionRate': 94.4,
-        };
-        _isLoadingStats = false;
-      });
-    } catch (e) {
-      setState(() => _isLoadingStats = false);
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: const Color(0xFFF8F9FA),
-      appBar: AppBar(
-        title: const Text('💳 Gestion des Paiements'),
-        backgroundColor: const Color(0xFF1B1E23),
-        foregroundColor: Colors.white,
-        elevation: 0,
-        bottom: TabBar(
-          controller: _tabController,
-          indicatorColor: Colors.white,
-          labelColor: Colors.white,
-          unselectedLabelColor: Colors.white70,
-          isScrollable: true,
-          tabs: const [
-            Tab(text: 'Dashboard', icon: Icon(Icons.dashboard)),
-            Tab(text: 'Transactions', icon: Icon(Icons.

@@ -169,7 +169,7 @@ class _QuizManagementPageState extends State<QuizManagementPage>
                     const SizedBox(height: 16),
 
                     DropdownButtonFormField<String>(
-                      value: _selectedCourseId.isEmpty
+                      value: _selectedCourseId.isEmpty || _myCourses.isEmpty
                           ? null
                           : _selectedCourseId,
                       decoration: const InputDecoration(
@@ -177,14 +177,16 @@ class _QuizManagementPageState extends State<QuizManagementPage>
                         border: OutlineInputBorder(),
                         prefixIcon: Icon(Icons.school),
                       ),
-                      items: _myCourses
-                          .map(
-                            (course) => DropdownMenuItem<String>(
-                              value: course['id'] as String?,
-                              child: Text(course['title'] as String),
-                            ),
-                          )
-                          .toList(),
+                      items: _myCourses.isEmpty
+                          ? []
+                          : _myCourses
+                                .map(
+                                  (course) => DropdownMenuItem<String>(
+                                    value: course['id'] as String,
+                                    child: Text(course['title'] as String),
+                                  ),
+                                )
+                                .toList(),
                       onChanged: (val) {
                         if (mounted) {
                           setState(() => _selectedCourseId = val ?? '');

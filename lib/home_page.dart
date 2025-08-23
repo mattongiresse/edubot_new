@@ -4,6 +4,7 @@ import 'student_courses_page.dart';
 import 'student_quiz_page.dart';
 import 'student_stats_page.dart';
 import 'profile_page.dart';
+import 'student_chatbot_page.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
@@ -576,7 +577,7 @@ class _HomePageState extends State<HomePage> {
             Navigator.push(
               context,
               MaterialPageRoute(
-                builder: (context) => const StudentCoursesPage(),
+                builder: (context) => const StudentCoursesPageImproved(),
               ),
             );
             break;
@@ -587,13 +588,10 @@ class _HomePageState extends State<HomePage> {
             );
             break;
           case 3: // Chat EduBot
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                content: Text(
-                  "💬 Chatbot en développement - Bientôt disponible !",
-                ),
-                backgroundColor: Colors.green,
-                behavior: SnackBarBehavior.floating,
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => const StudentChatbotPage(),
               ),
             );
             break;

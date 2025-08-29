@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter_gemini/flutter_gemini.dart'; // Nouvel import pour Gemini
 
 class StudentChatbotPage extends StatefulWidget {
   const StudentChatbotPage({super.key});
@@ -12,12 +13,26 @@ class StudentChatbotPage extends StatefulWidget {
 class _StudentChatbotPageState extends State<StudentChatbotPage> {
   final TextEditingController _messageController = TextEditingController();
   final List<ChatMessage> _messages = [];
+  final List<Content> _geminiHistory =
+      []; // Historique pour Gemini (contexte conversationnel)
   bool _isSending = false;
 
   @override
   void initState() {
     super.initState();
     _loadChatHistory();
+
+    // Ajoute un prompt système initial pour définir le comportement du bot (comme un assistant pédagogique)
+    _geminiHistory.add(
+      Content(
+        role: 'model',
+        parts: [
+          Part.text(
+            'Bonjour ! Je suis EduBot, votre assistant pédagogique. Je peux vous aider avec vos cours, quiz, progression, ou toute question académique. Posez-moi des questions !',
+          ),
+        ],
+      ),
+    );
   }
 
   Future<void> _loadChatHistory() async {
@@ -57,6 +72,18 @@ class _StudentChatbotPageState extends State<StudentChatbotPage> {
           _messages.clear();
           _messages.addAll(loadedMessages);
         });
+
+        // Reconstruire l'historique Gemini à partir des messages chargés
+        _geminiHistory.addAll(
+          _messages.map(
+            (msg) => Content(
+              role: msg.sender == 'user'
+                  ? 'user'
+                  : 'model', // 'ai' devient 'model' pour Gemini
+              parts: [Part.text(msg.text)],
+            ),
+          ),
+        );
       }
     } catch (e) {
       if (mounted) {
@@ -112,11 +139,13 @@ class _StudentChatbotPageState extends State<StudentChatbotPage> {
       // Clear input
       _messageController.clear();
 
-      // Simulate AI response (in a real app, this would come from an API)
-      await Future.delayed(const Duration(seconds: 1));
+      // Ajouter le message utilisateur à l'historique Gemini
+      _geminiHistory.add(
+        Content(role: 'user', parts: [Part.text(userMessage.text)]),
+      );
 
-      // Generate a more helpful AI response based on the user's message
-      final aiResponse = _generateAIResponse(userMessage.text);
+      // Générer la réponse avec Gemini (en utilisant l'historique pour le contexte)
+      final aiResponse = await _generateAIResponse();
 
       final aiMessage = ChatMessage(
         id: '',
@@ -157,6 +186,23 @@ class _StudentChatbotPageState extends State<StudentChatbotPage> {
           SnackBar(content: Text('Erreur lors de l\'envoi du message: $e')),
         );
       }
+    }
+  }
+
+  Future<String> _generateAIResponse() async {
+    try {
+      final response = await Gemini.instance.chat(_geminiHistory);
+
+      final text =
+          response?.output ??
+          'Désolé, je n\'ai pas pu générer une réponse. Réessayez !';
+
+      // Ajouter la réponse de Gemini à l'historique pour le contexte futur
+      _geminiHistory.add(Content(role: 'model', parts: [Part.text(text)]));
+
+      return text;
+    } catch (e) {
+      return 'Erreur avec l\'API Gemini: $e. Vérifiez votre clé API ou connexion.';
     }
   }
 
@@ -298,50 +344,6 @@ class _StudentChatbotPageState extends State<StudentChatbotPage> {
         ],
       ),
     );
-  }
-
-  String _generateAIResponse(String userMessage) {
-    final lowerMessage = userMessage.toLowerCase();
-
-    // Simple keyword-based responses
-    if (lowerMessage.contains('bonjour') ||
-        lowerMessage.contains('salut') ||
-        lowerMessage.contains('hello')) {
-      return 'Bonjour ! Je suis EduBot, votre assistant pédagogique. Comment puis-je vous aider aujourd\'hui ?';
-    }
-
-    if (lowerMessage.contains('cours') ||
-        lowerMessage.contains('matière') ||
-        lowerMessage.contains('sujet')) {
-      return 'Pour accéder à vos cours, allez dans la section "Mes Cours" de l\'application. Vous y trouverez tous les cours auxquels vous êtes inscrit. '
-          'Si vous avez des questions spécifiques sur un cours, n\'hésitez pas à me demander !';
-    }
-
-    if (lowerMessage.contains('quiz') ||
-        lowerMessage.contains('examen') ||
-        lowerMessage.contains('test')) {
-      return 'Vous pouvez accéder aux quiz dans la section "Quiz" de l\'application. Les quiz vous permettent de tester vos connaissances '
-          'et de vous entraîner. Si vous voulez des conseils pour réussir un quiz, je peux vous aider !';
-    }
-
-    if (lowerMessage.contains('aide') ||
-        lowerMessage.contains('help') ||
-        lowerMessage.contains('assistance')) {
-      return 'Je suis là pour vous aider ! Vous pouvez me poser des questions sur vos cours, vos quiz, ou demander de l\'aide sur un sujet spécifique. '
-          'Qu\'aimeriez-vous savoir ?';
-    }
-
-    if (lowerMessage.contains('progression') ||
-        lowerMessage.contains('statistique') ||
-        lowerMessage.contains('score')) {
-      return 'Pour voir votre progression, consultez la section "Statistiques" dans l\'application. Vous y trouverez des informations détaillées '
-          'sur vos performances, votre progression dans les cours, et vos résultats aux quiz.';
-    }
-
-    // Default response
-    return 'Merci pour votre message. Je suis EduBot, votre assistant pédagogique. '
-        'Je peux vous aider avec vos cours, quiz, et autres questions académiques. '
-        'Pouvez-vous me donner plus de détails sur ce dont vous avez besoin ?';
   }
 
   @override

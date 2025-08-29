@@ -142,13 +142,13 @@ class _RegisterPageState extends State<RegisterPage> {
                       style: TextStyle(color: Colors.black),
                     ),
                   ),
-                  DropdownMenuItem(
-                    value: 'Administrateur',
-                    child: Text(
-                      'Administrateur',
-                      style: TextStyle(color: Colors.black),
-                    ),
-                  ),
+                  // DropdownMenuItem(
+                  //   value: 'Administrateur',
+                  //   child: Text(
+                  //     'Administrateur',
+                  //     style: TextStyle(color: Colors.black),
+                  //   ),
+                  // ),
                 ],
                 onChanged: (val) => setState(() => statut = val!),
                 decoration: const InputDecoration(

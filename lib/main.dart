@@ -2,14 +2,25 @@ import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:provider/provider.dart';
 import 'login_page.dart';
-import 'admin_dashboard_page.dart'; // Ajouté
-import 'formateur_profile_page.dart'; // Ajouté
+import 'admin_dashboard_page.dart';
+import 'formateur_profile_page.dart';
 import 'firebase_options.dart';
 import 'theme_notifier.dart';
+import 'supabase_config.dart'; // Import de la configuration Supabase
+import 'package:flutter_gemini/flutter_gemini.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  // Initialiser Firebase
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
+
+  // Initialiser Supabase
+  await SupabaseConfig.initialize();
+
+  // Initialiser Gemini
+  Gemini.init(apiKey: 'AIzaSyDIl3JWgAuL_EOxJBUp8qgLdNMqxxlGZvU');
+
   runApp(const MyApp());
 }
 
@@ -26,19 +37,15 @@ class MyApp extends StatelessWidget {
             debugShowCheckedModeBanner: false,
             theme: themeNotifier.themeData,
             // Définition des routes
-            initialRoute: '/login', // Route initiale
+            initialRoute: '/login',
             routes: {
-              '/login': (context) =>
-                  const LoginPage(), // Route pour la page de connexion
-              '/admin': (context) => const AdminDashboardPage(
-                adminName: 'Admin',
-              ), // Route pour le dashboard admin
-              '/formateur': (context) =>
-                  const FormateurProfilePage(), // Route pour le profil formateur
+              '/login': (context) => const LoginPage(),
+              '/admin': (context) =>
+                  const AdminDashboardPage(adminName: 'Admin'),
+              '/formateur': (context) => const FormateurProfilePage(),
             },
             // Gestionnaire de routes dynamiques (optionnel)
             onGenerateRoute: (settings) {
-              // Ajouter ici si tu as besoin de routes dynamiques
               return null;
             },
             // Gestionnaire de routes inconnues (optionnel)

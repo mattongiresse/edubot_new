@@ -7,7 +7,6 @@ import 'admin_system_settings_page.dart';
 import 'admin_payments_page.dart';
 import 'admin_support_page.dart';
 import 'admin_analytics_page.dart';
-import 'login_page.dart';
 
 class AdminDashboardPage extends StatefulWidget {
   final String adminName;
@@ -336,7 +335,7 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
                 ),
                 _buildMetricCard(
                   'Revenus',
-                  '${_formatCurrency(_systemStats['totalRevenue'] ?? 0)}',
+                  _formatCurrency(_systemStats['totalRevenue'] ?? 0),
                   'FCFA ce mois',
                   Icons.attach_money,
                   const Color(0xFFF59E0B),

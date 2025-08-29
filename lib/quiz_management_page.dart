@@ -2,14 +2,15 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
-class QuizManagementPage extends StatefulWidget {
-  const QuizManagementPage({super.key});
+class QuizManagementPageImproved extends StatefulWidget {
+  const QuizManagementPageImproved({super.key});
 
   @override
-  State<QuizManagementPage> createState() => _QuizManagementPageState();
+  State<QuizManagementPageImproved> createState() =>
+      _QuizManagementPageImprovedState();
 }
 
-class _QuizManagementPageState extends State<QuizManagementPage>
+class _QuizManagementPageImprovedState extends State<QuizManagementPageImproved>
     with TickerProviderStateMixin {
   late TabController _tabController;
   final _quizFormKey = GlobalKey<FormState>();
@@ -22,46 +23,61 @@ class _QuizManagementPageState extends State<QuizManagementPage>
   final TextEditingController _attemptsController = TextEditingController();
 
   String _selectedCourseId = '';
-  List<Map<String, dynamic>> _myCourses = [];
+  List<Map<String, dynamic>> _availableCourses = [];
   final List<QuizQuestion> _questions = [];
   bool _isCreating = false;
+  bool _isLoadingCourses = true;
 
   @override
   void initState() {
     super.initState();
     _tabController = TabController(length: 3, vsync: this);
-    _loadMyCourses();
+    _loadAvailableCourses();
   }
 
-  Future<void> _loadMyCourses() async {
-    final user = FirebaseAuth.instance.currentUser;
-    if (user == null) return;
-
+  // Charger tous les cours disponibles (pas seulement ceux du formateur)
+  Future<void> _loadAvailableCourses() async {
     try {
+      setState(() => _isLoadingCourses = true);
+
+      // Récupérer TOUS les cours actifs de la plateforme
       final coursesSnapshot = await FirebaseFirestore.instance
           .collection('courses')
-          .where('formateurId', isEqualTo: user.uid)
+          .where('isActive', isEqualTo: true)
+          .orderBy('title')
           .get();
 
       if (mounted) {
         setState(() {
-          _myCourses = coursesSnapshot.docs
+          _availableCourses = coursesSnapshot.docs
               .map(
                 (doc) => {
                   'id': doc.id,
                   'title': doc.data()['title'] as String? ?? 'Sans titre',
+                  'category':
+                      doc.data()['category'] as String? ?? 'Non catégorisé',
+                  'formateurNom':
+                      doc.data()['formateurNom'] as String? ??
+                      'Formateur inconnu',
+                  'formateurId': doc.data()['formateurId'] as String? ?? '',
                 },
               )
               .toList();
-          if (_myCourses.isNotEmpty) {
-            _selectedCourseId = _myCourses.first['id'] ?? '';
+
+          if (_availableCourses.isNotEmpty) {
+            _selectedCourseId = _availableCourses.first['id'] ?? '';
           }
+          _isLoadingCourses = false;
         });
       }
     } catch (e) {
       if (mounted) {
+        setState(() => _isLoadingCourses = false);
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Erreur lors du chargement des cours: $e')),
+          SnackBar(
+            content: Text('Erreur lors du chargement des cours: $e'),
+            backgroundColor: Colors.red,
+          ),
         );
       }
     }
@@ -76,6 +92,13 @@ class _QuizManagementPageState extends State<QuizManagementPage>
         backgroundColor: Colors.deepPurple,
         foregroundColor: Colors.white,
         elevation: 2,
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.refresh),
+            onPressed: _loadAvailableCourses,
+            tooltip: 'Actualiser les cours',
+          ),
+        ],
         bottom: TabBar(
           controller: _tabController,
           indicatorColor: Colors.white,
@@ -108,22 +131,33 @@ class _QuizManagementPageState extends State<QuizManagementPage>
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             // En-tête
-            const Card(
+            Card(
               color: Colors.deepPurple,
               child: Padding(
-                padding: EdgeInsets.all(16),
+                padding: const EdgeInsets.all(16),
                 child: Row(
                   children: [
-                    Icon(Icons.quiz, color: Colors.white, size: 30),
-                    SizedBox(width: 12),
-                    Text(
-                      'Créer un nouveau quiz',
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 20,
-                        fontWeight: FontWeight.bold,
+                    const Icon(Icons.quiz, color: Colors.white, size: 30),
+                    const SizedBox(width: 12),
+                    const Expanded(
+                      child: Text(
+                        'Créer un nouveau quiz',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 20,
+                          fontWeight: FontWeight.bold,
+                        ),
                       ),
                     ),
+                    if (_isLoadingCourses)
+                      const SizedBox(
+                        width: 20,
+                        height: 20,
+                        child: CircularProgressIndicator(
+                          color: Colors.white,
+                          strokeWidth: 2,
+                        ),
+                      ),
                   ],
                 ),
               ),
@@ -168,33 +202,7 @@ class _QuizManagementPageState extends State<QuizManagementPage>
                     ),
                     const SizedBox(height: 16),
 
-                    DropdownButtonFormField<String>(
-                      value: _selectedCourseId.isEmpty || _myCourses.isEmpty
-                          ? null
-                          : _selectedCourseId,
-                      decoration: const InputDecoration(
-                        labelText: 'Cours associé',
-                        border: OutlineInputBorder(),
-                        prefixIcon: Icon(Icons.school),
-                      ),
-                      items: _myCourses.isEmpty
-                          ? []
-                          : _myCourses
-                                .map(
-                                  (course) => DropdownMenuItem<String>(
-                                    value: course['id'] as String,
-                                    child: Text(course['title'] as String),
-                                  ),
-                                )
-                                .toList(),
-                      onChanged: (val) {
-                        if (mounted) {
-                          setState(() => _selectedCourseId = val ?? '');
-                        }
-                      },
-                      validator: (val) =>
-                          val == null ? 'Sélectionnez un cours' : null,
-                    ),
+                    _buildCourseDropdown(),
                     const SizedBox(height: 16),
 
                     Row(
@@ -234,7 +242,7 @@ class _QuizManagementPageState extends State<QuizManagementPage>
             ),
             const SizedBox(height: 20),
 
-            // Questions
+            // Section des questions
             Card(
               child: Padding(
                 padding: const EdgeInsets.all(16),
@@ -331,6 +339,107 @@ class _QuizManagementPageState extends State<QuizManagementPage>
           ],
         ),
       ),
+    );
+  }
+
+  Widget _buildCourseDropdown() {
+    if (_isLoadingCourses) {
+      return Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          border: Border.all(color: Colors.grey.shade300),
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: const Row(
+          children: [
+            SizedBox(
+              width: 20,
+              height: 20,
+              child: CircularProgressIndicator(strokeWidth: 2),
+            ),
+            SizedBox(width: 12),
+            Text('Chargement des cours...'),
+          ],
+        ),
+      );
+    }
+
+    if (_availableCourses.isEmpty) {
+      return Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          border: Border.all(color: Colors.red.shade300),
+          borderRadius: BorderRadius.circular(8),
+          color: Colors.red.shade50,
+        ),
+        child: Row(
+          children: [
+            Icon(Icons.warning, color: Colors.red.shade600),
+            const SizedBox(width: 12),
+            const Expanded(
+              child: Text(
+                'Aucun cours disponible. Créez d\'abord un cours.',
+                style: TextStyle(color: Colors.red),
+              ),
+            ),
+            ElevatedButton(
+              onPressed: _loadAvailableCourses,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.red,
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 8,
+                ),
+              ),
+              child: const Text('Actualiser'),
+            ),
+          ],
+        ),
+      );
+    }
+
+    return DropdownButtonFormField<String>(
+      value:
+          _selectedCourseId.isEmpty ||
+              !_availableCourses.any(
+                (course) => course['id'] == _selectedCourseId,
+              )
+          ? null
+          : _selectedCourseId,
+      decoration: const InputDecoration(
+        labelText: 'Cours associé',
+        border: OutlineInputBorder(),
+        prefixIcon: Icon(Icons.school),
+      ),
+      items: _availableCourses.map((course) {
+        return DropdownMenuItem<String>(
+          value: course['id'] as String,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                course['title'] as String,
+                style: const TextStyle(fontWeight: FontWeight.bold),
+                overflow: TextOverflow.ellipsis,
+              ),
+              Text(
+                '${course['category']} • ${course['formateurNom']}',
+                style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+                overflow: TextOverflow.ellipsis,
+              ),
+            ],
+          ),
+        );
+      }).toList(),
+      onChanged: (val) {
+        if (mounted) {
+          setState(() => _selectedCourseId = val ?? '');
+        }
+      },
+      validator: (val) => val == null ? 'Sélectionnez un cours' : null,
+      isExpanded: true,
     );
   }
 
@@ -469,95 +578,105 @@ class _QuizManagementPageState extends State<QuizManagementPage>
             final quiz = quizzes[index];
             final data = quiz.data() as Map<String, dynamic>;
 
-            return Card(
-              margin: const EdgeInsets.only(bottom: 12),
-              child: ListTile(
-                leading: const CircleAvatar(
-                  backgroundColor: Colors.deepPurple,
-                  child: Icon(Icons.quiz, color: Colors.white),
-                ),
-                title: Text(
-                  data['title'] ?? 'Quiz sans titre',
-                  style: const TextStyle(fontWeight: FontWeight.bold),
-                ),
-                subtitle: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(data['description'] ?? ''),
-                    const SizedBox(height: 4),
-                    Row(
-                      children: [
-                        Icon(Icons.timer, size: 14, color: Colors.grey[600]),
-                        const SizedBox(width: 4),
-                        Text(
-                          '${data['duration']} min',
-                          style: const TextStyle(fontSize: 12),
-                        ),
-                        const SizedBox(width: 12),
-                        Icon(Icons.quiz, size: 14, color: Colors.grey[600]),
-                        const SizedBox(width: 4),
-                        Text(
-                          '${(data['questions'] as List?)?.length ?? 0} questions',
-                          style: const TextStyle(fontSize: 12),
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-                trailing: PopupMenuButton(
-                  itemBuilder: (context) => [
-                    const PopupMenuItem(
-                      value: 'view',
-                      child: Row(
-                        children: [
-                          Icon(Icons.visibility),
-                          SizedBox(width: 8),
-                          Text('Voir résultats'),
-                        ],
-                      ),
-                    ),
-                    const PopupMenuItem(
-                      value: 'edit',
-                      child: Row(
-                        children: [
-                          Icon(Icons.edit),
-                          SizedBox(width: 8),
-                          Text('Modifier'),
-                        ],
-                      ),
-                    ),
-                    const PopupMenuItem(
-                      value: 'duplicate',
-                      child: Row(
-                        children: [
-                          Icon(Icons.copy),
-                          SizedBox(width: 8),
-                          Text('Dupliquer'),
-                        ],
-                      ),
-                    ),
-                    const PopupMenuItem(
-                      value: 'delete',
-                      child: Row(
-                        children: [
-                          Icon(Icons.delete, color: Colors.red),
-                          SizedBox(width: 8),
-                          Text(
-                            'Supprimer',
-                            style: TextStyle(color: Colors.red),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                  onSelected: (value) =>
-                      _handleQuizAction(value.toString(), quiz.id, data),
-                ),
-              ),
-            );
+            return _buildQuizCard(quiz.id, data);
           },
         );
       },
+    );
+  }
+
+  Widget _buildQuizCard(String quizId, Map<String, dynamic> data) {
+    return Card(
+      margin: const EdgeInsets.only(bottom: 12),
+      child: ListTile(
+        leading: const CircleAvatar(
+          backgroundColor: Colors.deepPurple,
+          child: Icon(Icons.quiz, color: Colors.white),
+        ),
+        title: Text(
+          data['title'] ?? 'Quiz sans titre',
+          style: const TextStyle(fontWeight: FontWeight.bold),
+        ),
+        subtitle: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(data['description'] ?? ''),
+            const SizedBox(height: 4),
+            Text(
+              'Cours: ${data['course'] ?? 'Non associé'}',
+              style: const TextStyle(
+                fontSize: 12,
+                color: Colors.blue,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+            const SizedBox(height: 4),
+            Row(
+              children: [
+                Icon(Icons.timer, size: 14, color: Colors.grey[600]),
+                const SizedBox(width: 4),
+                Text(
+                  '${data['duration']} min',
+                  style: const TextStyle(fontSize: 12),
+                ),
+                const SizedBox(width: 12),
+                Icon(Icons.quiz, size: 14, color: Colors.grey[600]),
+                const SizedBox(width: 4),
+                Text(
+                  '${(data['questions'] as List?)?.length ?? 0} questions',
+                  style: const TextStyle(fontSize: 12),
+                ),
+              ],
+            ),
+          ],
+        ),
+        trailing: PopupMenuButton(
+          itemBuilder: (context) => [
+            const PopupMenuItem(
+              value: 'view',
+              child: Row(
+                children: [
+                  Icon(Icons.visibility),
+                  SizedBox(width: 8),
+                  Text('Voir résultats'),
+                ],
+              ),
+            ),
+            const PopupMenuItem(
+              value: 'edit',
+              child: Row(
+                children: [
+                  Icon(Icons.edit),
+                  SizedBox(width: 8),
+                  Text('Modifier'),
+                ],
+              ),
+            ),
+            const PopupMenuItem(
+              value: 'duplicate',
+              child: Row(
+                children: [
+                  Icon(Icons.copy),
+                  SizedBox(width: 8),
+                  Text('Dupliquer'),
+                ],
+              ),
+            ),
+            const PopupMenuItem(
+              value: 'delete',
+              child: Row(
+                children: [
+                  Icon(Icons.delete, color: Colors.red),
+                  SizedBox(width: 8),
+                  Text('Supprimer', style: TextStyle(color: Colors.red)),
+                ],
+              ),
+            ),
+          ],
+          onSelected: (value) =>
+              _handleQuizAction(value.toString(), quizId, data),
+        ),
+      ),
     );
   }
 
@@ -694,11 +813,21 @@ class _QuizManagementPageState extends State<QuizManagementPage>
 
   Future<void> _saveQuiz() async {
     if (!_quizFormKey.currentState!.validate()) return;
+
     if (_questions.isEmpty) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Ajoutez au moins une question')),
         );
+      }
+      return;
+    }
+
+    if (_selectedCourseId.isEmpty) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('Sélectionnez un cours')));
       }
       return;
     }
@@ -709,21 +838,25 @@ class _QuizManagementPageState extends State<QuizManagementPage>
 
     try {
       final user = FirebaseAuth.instance.currentUser!;
-      String selectedCourseTitle = 'Sans cours';
-      if (_myCourses.isNotEmpty && _selectedCourseId.isNotEmpty) {
-        selectedCourseTitle =
-            _myCourses.firstWhere(
-              (course) => course['id'] == _selectedCourseId,
-              orElse: () => {'title': 'Sans titre'},
-            )['title'] ??
-            'Sans titre';
-      }
 
+      // Récupérer les infos du cours sélectionné
+      final selectedCourse = _availableCourses.firstWhere(
+        (course) => course['id'] == _selectedCourseId,
+        orElse: () => {
+          'title': 'Cours introuvable',
+          'category': 'Non catégorisé',
+          'formateurNom': 'Formateur inconnu',
+        },
+      );
+
+      // Créer le quiz dans Firestore
       await FirebaseFirestore.instance.collection('quizzes').add({
         'title': _quizTitleController.text.trim(),
         'description': _quizDescriptionController.text.trim(),
-        'course': selectedCourseTitle,
+        'course': selectedCourse['title'],
         'courseId': _selectedCourseId,
+        'courseCategory': selectedCourse['category'],
+        'courseFormateurNom': selectedCourse['formateurNom'],
         'duration': int.tryParse(_durationController.text) ?? 0,
         'maxAttempts': int.tryParse(_attemptsController.text) ?? 1,
         'formateurId': user.uid,
@@ -740,13 +873,14 @@ class _QuizManagementPageState extends State<QuizManagementPage>
         _attemptsController.clear();
         setState(() {
           _questions.clear();
-          if (_myCourses.isNotEmpty)
-            _selectedCourseId = _myCourses.first['id'] ?? '';
+          if (_availableCourses.isNotEmpty) {
+            _selectedCourseId = _availableCourses.first['id'] ?? '';
+          }
         });
 
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('Quiz créé avec succès ! 🎉'),
+            content: Text('Quiz créé avec succès !'),
             backgroundColor: Colors.green,
           ),
         );
@@ -876,12 +1010,6 @@ class _QuizManagementPageState extends State<QuizManagementPage>
     }
   }
 
-  void _viewQuizResults(String quizId, Map<String, dynamic> quizData) {
-    if (mounted) {
-      _tabController.animateTo(2);
-    }
-  }
-
   Future<void> _duplicateQuiz(Map<String, dynamic> quizData) async {
     try {
       final user = FirebaseAuth.instance.currentUser!;
@@ -981,6 +1109,8 @@ class _QuizManagementPageState extends State<QuizManagementPage>
                 style: TextStyle(fontWeight: FontWeight.bold),
               ),
               // Ici, vous pouvez ajouter plus de détails sur les réponses
+              // Exemple : Si les réponses sont stockées dans 'answers', les parcourir
+              // if (attemptData['answers'] != null) ...
             ],
           ),
         ),

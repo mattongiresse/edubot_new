@@ -124,14 +124,14 @@ class _AdminPaymentsPageState extends State<AdminPaymentsPage>
             children: [
               _buildMetricCard(
                 'Revenus Totaux',
-                '${_formatCurrency(_paymentStats['totalRevenue'] ?? 0)}',
+                _formatCurrency(_paymentStats['totalRevenue'] ?? 0),
                 Icons.account_balance_wallet,
                 Colors.green,
                 '+12% ce mois',
               ),
               _buildMetricCard(
                 'Revenus Mensuels',
-                '${_formatCurrency(_paymentStats['monthlyRevenue'] ?? 0)}',
+                _formatCurrency(_paymentStats['monthlyRevenue'] ?? 0),
                 Icons.trending_up,
                 Colors.blue,
                 'Ce mois-ci',
@@ -778,7 +778,7 @@ class _AdminPaymentsPageState extends State<AdminPaymentsPage>
               ),
               _buildMetricCard(
                 'MRR',
-                '${_formatCurrency(1850000)}',
+                _formatCurrency(1850000),
                 Icons.attach_money,
                 Colors.blue,
                 'Revenus récurrents',
@@ -849,7 +849,7 @@ class _AdminPaymentsPageState extends State<AdminPaymentsPage>
                     final data = doc.data() as Map<String, dynamic>;
                     return _buildPlanCard(
                       data['name'] ?? 'Plan inconnu',
-                      '${_formatCurrency(data['price'] ?? 0)}',
+                      _formatCurrency(data['price'] ?? 0),
                       data['description'] ?? 'Aucune description',
                       data['subscribers'] ?? 0,
                       _getPlanColor(data['name'] ?? ''),
@@ -1475,10 +1475,10 @@ class _AdminPaymentsPageState extends State<AdminPaymentsPage>
   }
 
   void _showAddPlanDialog() {
-    final _nameController = TextEditingController();
-    final _priceController = TextEditingController();
-    final _durationController = TextEditingController();
-    final _descriptionController = TextEditingController();
+    final nameController = TextEditingController();
+    final priceController = TextEditingController();
+    final durationController = TextEditingController();
+    final descriptionController = TextEditingController();
 
     showDialog(
       context: context,
@@ -1488,7 +1488,7 @@ class _AdminPaymentsPageState extends State<AdminPaymentsPage>
           mainAxisSize: MainAxisSize.min,
           children: [
             TextField(
-              controller: _nameController,
+              controller: nameController,
               decoration: const InputDecoration(
                 labelText: 'Nom du plan',
                 border: OutlineInputBorder(),
@@ -1496,7 +1496,7 @@ class _AdminPaymentsPageState extends State<AdminPaymentsPage>
             ),
             const SizedBox(height: 12),
             TextField(
-              controller: _priceController,
+              controller: priceController,
               decoration: const InputDecoration(
                 labelText: 'Prix (FCFA)',
                 border: OutlineInputBorder(),
@@ -1505,7 +1505,7 @@ class _AdminPaymentsPageState extends State<AdminPaymentsPage>
             ),
             const SizedBox(height: 12),
             TextField(
-              controller: _durationController,
+              controller: durationController,
               decoration: const InputDecoration(
                 labelText: 'Durée (jours)',
                 border: OutlineInputBorder(),
@@ -1514,7 +1514,7 @@ class _AdminPaymentsPageState extends State<AdminPaymentsPage>
             ),
             const SizedBox(height: 12),
             TextField(
-              controller: _descriptionController,
+              controller: descriptionController,
               decoration: const InputDecoration(
                 labelText: 'Description',
                 border: OutlineInputBorder(),
@@ -1531,10 +1531,10 @@ class _AdminPaymentsPageState extends State<AdminPaymentsPage>
           ElevatedButton(
             onPressed: () {
               final planData = {
-                'name': _nameController.text,
-                'price': int.tryParse(_priceController.text) ?? 0,
-                'duration': int.tryParse(_durationController.text) ?? 0,
-                'description': _descriptionController.text,
+                'name': nameController.text,
+                'price': int.tryParse(priceController.text) ?? 0,
+                'duration': int.tryParse(durationController.text) ?? 0,
+                'description': descriptionController.text,
                 'subscribers': 0,
               };
               FirebaseFirestore.instance

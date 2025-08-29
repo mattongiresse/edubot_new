@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:url_launcher/url_launcher.dart';
-import 'course_service_page.dart'; // Importez le service créé précédemment
 
 class StudentCoursesPageImproved extends StatefulWidget {
   const StudentCoursesPageImproved({super.key});
@@ -48,21 +47,16 @@ class _StudentCoursesPageImprovedState extends State<StudentCoursesPageImproved>
       resizeToAvoidBottomInset: true,
       backgroundColor: Colors.grey[50],
       appBar: AppBar(
-        title: const Text(
-          'Mes Cours',
-          style: TextStyle(fontSize: 18),
-        ), // Réduit la taille du titre
+        title: const Text('Mes Cours', style: TextStyle(fontSize: 18)),
         backgroundColor: Colors.deepPurple,
         foregroundColor: Colors.white,
-        elevation: 1, // Réduit de 2 à 1
+        elevation: 1,
         bottom: TabBar(
           controller: _tabController,
           labelColor: Colors.white,
           unselectedLabelColor: Colors.white70,
           indicatorColor: Colors.white,
-          labelStyle: const TextStyle(
-            fontSize: 12,
-          ), // Réduit la taille des labels
+          labelStyle: const TextStyle(fontSize: 12),
           tabs: const [
             Tab(text: 'Tous les Cours', icon: Icon(Icons.school, size: 18)),
             Tab(text: 'Mes Inscriptions', icon: Icon(Icons.bookmark, size: 18)),
@@ -77,71 +71,65 @@ class _StudentCoursesPageImprovedState extends State<StudentCoursesPageImproved>
   }
 
   Widget _buildAllCoursesTab() {
-    return SingleChildScrollView(
-      child: Column(
-        children: [
-          // Barre de recherche et filtres (minimisés)
-          Container(
-            padding: const EdgeInsets.all(4), // Réduit de 6 à 4
-            color: Colors.white,
-            child: Column(
-              children: [
-                TextField(
-                  controller: _searchController,
-                  decoration: InputDecoration(
-                    hintText: 'Rechercher...',
-                    prefixIcon: const Icon(Icons.search, size: 16),
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(6),
-                    ),
-                    contentPadding: const EdgeInsets.symmetric(horizontal: 4),
+    return Column(
+      children: [
+        // Barre de recherche et filtres
+        Container(
+          padding: const EdgeInsets.all(8),
+          color: Colors.white,
+          child: Column(
+            children: [
+              TextField(
+                controller: _searchController,
+                decoration: InputDecoration(
+                  hintText: 'Rechercher...',
+                  prefixIcon: const Icon(Icons.search, size: 16),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(6),
                   ),
-                  onChanged: (value) {
-                    setState(() {
-                      _searchQuery = value.toLowerCase();
-                    });
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 4),
+                ),
+                onChanged: (value) {
+                  setState(() {
+                    _searchQuery = value.toLowerCase();
+                  });
+                },
+              ),
+              const SizedBox(height: 8),
+              SizedBox(
+                height: 32,
+                child: ListView.builder(
+                  scrollDirection: Axis.horizontal,
+                  itemCount: _categories.length,
+                  itemBuilder: (context, index) {
+                    final category = _categories[index];
+                    final isSelected = _selectedCategory == category;
+                    return Container(
+                      margin: const EdgeInsets.only(right: 4),
+                      child: FilterChip(
+                        label: Text(
+                          category,
+                          style: const TextStyle(fontSize: 10),
+                        ),
+                        selected: isSelected,
+                        onSelected: (selected) {
+                          setState(() {
+                            _selectedCategory = category;
+                          });
+                        },
+                        selectedColor: Colors.deepPurple.withOpacity(0.2),
+                        checkmarkColor: Colors.deepPurple,
+                      ),
+                    );
                   },
                 ),
-                const SizedBox(height: 2), // Réduit de 4 à 2
-
-                SizedBox(
-                  height: 20, // Réduit de 28 à 20
-                  child: ListView.builder(
-                    scrollDirection: Axis.horizontal,
-                    itemCount: _categories.length,
-                    itemBuilder: (context, index) {
-                      final category = _categories[index];
-                      final isSelected = _selectedCategory == category;
-                      return Container(
-                        margin: const EdgeInsets.only(
-                          right: 2,
-                        ), // Réduit de 4 à 2
-                        child: FilterChip(
-                          label: Text(
-                            category,
-                            style: const TextStyle(fontSize: 10),
-                          ),
-                          selected: isSelected,
-                          onSelected: (selected) {
-                            setState(() {
-                              _selectedCategory = category;
-                            });
-                          },
-                          selectedColor: Colors.deepPurple.withOpacity(0.2),
-                          checkmarkColor: Colors.deepPurple,
-                        ),
-                      );
-                    },
-                  ),
-                ),
-              ],
-            ),
+              ),
+            ],
           ),
-
-          // Liste des cours avec Expanded
-          Expanded(child: _buildCoursesList()),
-        ],
-      ),
+        ),
+        // Liste des cours
+        Expanded(child: _buildCoursesList()),
+      ],
     );
   }
 
@@ -164,13 +152,19 @@ class _StudentCoursesPageImprovedState extends State<StudentCoursesPageImproved>
           return const Center(child: CircularProgressIndicator());
         }
 
+        if (snapshot.hasError) {
+          return Center(child: Text('Erreur: ${snapshot.error}'));
+        }
+
         if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
           return _buildEmptyState('Aucun cours disponible');
         }
 
         final courses = snapshot.data!.docs.where((course) {
           if (_searchQuery.isEmpty) return true;
-          final data = course.data() as Map<String, dynamic>;
+          final data = course.data() as Map<String, dynamic>?;
+          if (data == null) return false;
+
           final title = (data['title'] ?? '').toString().toLowerCase();
           final description = (data['description'] ?? '')
               .toString()
@@ -184,11 +178,13 @@ class _StudentCoursesPageImprovedState extends State<StudentCoursesPageImproved>
         }
 
         return ListView.builder(
-          padding: const EdgeInsets.all(4), // Réduit de 6 à 4
+          padding: const EdgeInsets.all(8),
           itemCount: courses.length,
           itemBuilder: (context, index) {
             final course = courses[index];
-            final data = course.data() as Map<String, dynamic>;
+            final data = course.data() as Map<String, dynamic>?;
+            if (data == null) return const SizedBox.shrink();
+
             return _buildCourseCard(course.id, data);
           },
         );
@@ -198,11 +194,11 @@ class _StudentCoursesPageImprovedState extends State<StudentCoursesPageImproved>
 
   Widget _buildCourseCard(String courseId, Map<String, dynamic> courseData) {
     return Card(
-      margin: const EdgeInsets.only(bottom: 4), // Réduit de 6 à 4
-      elevation: 1,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
+      margin: const EdgeInsets.only(bottom: 8),
+      elevation: 2,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
       child: Padding(
-        padding: const EdgeInsets.all(8), // Réduit de 10 à 8
+        padding: const EdgeInsets.all(12),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -216,27 +212,27 @@ class _StudentCoursesPageImprovedState extends State<StudentCoursesPageImproved>
                       Text(
                         courseData['title'] ?? 'Sans titre',
                         style: const TextStyle(
-                          fontSize: 14,
+                          fontSize: 16,
                           fontWeight: FontWeight.bold,
                         ),
-                        maxLines: 1,
+                        maxLines: 2,
                         overflow: TextOverflow.ellipsis,
                       ),
-                      const SizedBox(height: 2), // Réduit de 3 à 2
+                      const SizedBox(height: 4),
                       Container(
                         padding: const EdgeInsets.symmetric(
-                          horizontal: 4,
-                          vertical: 1,
+                          horizontal: 8,
+                          vertical: 4,
                         ),
                         decoration: BoxDecoration(
                           color: Colors.deepPurple.withOpacity(0.1),
                           borderRadius: BorderRadius.circular(4),
                         ),
                         child: Text(
-                          courseData['category'] ?? '',
+                          courseData['category'] ?? 'Non catégorisé',
                           style: const TextStyle(
                             color: Colors.deepPurple,
-                            fontSize: 8,
+                            fontSize: 12,
                             fontWeight: FontWeight.w500,
                           ),
                         ),
@@ -250,19 +246,9 @@ class _StudentCoursesPageImprovedState extends State<StudentCoursesPageImproved>
                       value: 'view',
                       child: Row(
                         children: [
-                          Icon(Icons.visibility, size: 14),
-                          SizedBox(width: 4),
+                          Icon(Icons.visibility, size: 16),
+                          SizedBox(width: 8),
                           Text('Voir le cours'),
-                        ],
-                      ),
-                    ),
-                    const PopupMenuItem(
-                      value: 'download',
-                      child: Row(
-                        children: [
-                          Icon(Icons.download, size: 14),
-                          SizedBox(width: 4),
-                          Text('Télécharger PDF'),
                         ],
                       ),
                     ),
@@ -270,8 +256,8 @@ class _StudentCoursesPageImprovedState extends State<StudentCoursesPageImproved>
                       value: 'enroll',
                       child: Row(
                         children: [
-                          Icon(Icons.add, size: 14),
-                          SizedBox(width: 4),
+                          Icon(Icons.add, size: 16),
+                          SizedBox(width: 8),
                           Text('S\'inscrire'),
                         ],
                       ),
@@ -282,35 +268,37 @@ class _StudentCoursesPageImprovedState extends State<StudentCoursesPageImproved>
                 ),
               ],
             ),
-            const SizedBox(height: 4), // Réduit de 6 à 4
+            const SizedBox(height: 8),
             Text(
               courseData['description'] ?? 'Aucune description',
-              style: TextStyle(color: Colors.grey[600], fontSize: 10),
-              maxLines: 2,
+              style: TextStyle(color: Colors.grey[600], fontSize: 14),
+              maxLines: 3,
               overflow: TextOverflow.ellipsis,
             ),
-            const SizedBox(height: 4),
+            const SizedBox(height: 8),
             Row(
               children: [
-                Icon(Icons.person, size: 12, color: Colors.grey[600]),
-                const SizedBox(width: 2),
+                Icon(Icons.person, size: 16, color: Colors.grey[600]),
+                const SizedBox(width: 4),
                 Expanded(
                   child: Text(
                     courseData['formateurNom'] ?? 'Formateur inconnu',
-                    style: TextStyle(color: Colors.grey[600], fontSize: 8),
+                    style: TextStyle(color: Colors.grey[600], fontSize: 12),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                   ),
                 ),
-                Icon(Icons.file_present, size: 12, color: Colors.red[600]),
-                const SizedBox(width: 2),
-                Text(
-                  _formatFileSize(courseData['fileSize'] ?? 0),
-                  style: TextStyle(color: Colors.grey[600], fontSize: 8),
-                ),
+                if (courseData['fileSize'] != null) ...[
+                  Icon(Icons.file_present, size: 16, color: Colors.red[600]),
+                  const SizedBox(width: 4),
+                  Text(
+                    _formatFileSize(courseData['fileSize'] ?? 0),
+                    style: TextStyle(color: Colors.grey[600], fontSize: 12),
+                  ),
+                ],
               ],
             ),
-            const SizedBox(height: 4),
+            const SizedBox(height: 8),
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
@@ -331,13 +319,13 @@ class _StudentCoursesPageImprovedState extends State<StudentCoursesPageImproved>
                 ),
               ],
             ),
-            const SizedBox(height: 4),
+            const SizedBox(height: 12),
             Row(
               children: [
                 Expanded(
                   child: ElevatedButton.icon(
                     onPressed: () => _enrollInCourse(courseId, courseData),
-                    icon: const Icon(Icons.add, size: 14),
+                    icon: const Icon(Icons.add, size: 16),
                     label: const Text('S\'inscrire'),
                     style: ElevatedButton.styleFrom(
                       backgroundColor: Colors.deepPurple,
@@ -345,11 +333,11 @@ class _StudentCoursesPageImprovedState extends State<StudentCoursesPageImproved>
                     ),
                   ),
                 ),
-                const SizedBox(width: 3), // Réduit de 4 à 3
+                const SizedBox(width: 8),
                 Expanded(
                   child: OutlinedButton.icon(
                     onPressed: () => _viewPdf(courseData['pdfUrl']),
-                    icon: const Icon(Icons.visibility, size: 14),
+                    icon: const Icon(Icons.visibility, size: 16),
                     label: const Text('Voir PDF'),
                     style: OutlinedButton.styleFrom(
                       foregroundColor: Colors.deepPurple,
@@ -366,10 +354,7 @@ class _StudentCoursesPageImprovedState extends State<StudentCoursesPageImproved>
 
   Widget _buildStatChip(IconData icon, String text, Color color) {
     return Container(
-      padding: const EdgeInsets.symmetric(
-        horizontal: 4,
-        vertical: 1,
-      ), // Réduit de 5/2 à 4/1
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       decoration: BoxDecoration(
         color: color.withOpacity(0.1),
         borderRadius: BorderRadius.circular(4),
@@ -377,13 +362,13 @@ class _StudentCoursesPageImprovedState extends State<StudentCoursesPageImproved>
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(icon, size: 8, color: color),
-          const SizedBox(width: 1), // Réduit de 2 à 1
+          Icon(icon, size: 12, color: color),
+          const SizedBox(width: 4),
           Text(
             text,
             style: TextStyle(
               color: color,
-              fontSize: 6, // Réduit de 7 à 6
+              fontSize: 10,
               fontWeight: FontWeight.w500,
             ),
           ),
@@ -399,7 +384,7 @@ class _StudentCoursesPageImprovedState extends State<StudentCoursesPageImproved>
       return const Center(
         child: Text(
           'Veuillez vous connecter pour voir vos cours',
-          style: TextStyle(fontSize: 12),
+          style: TextStyle(fontSize: 16),
         ),
       );
     }
@@ -415,6 +400,10 @@ class _StudentCoursesPageImprovedState extends State<StudentCoursesPageImproved>
           return const Center(child: CircularProgressIndicator());
         }
 
+        if (snapshot.hasError) {
+          return Center(child: Text('Erreur: ${snapshot.error}'));
+        }
+
         if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
           return _buildEmptyState('Vous n\'êtes inscrit à aucun cours');
         }
@@ -422,11 +411,13 @@ class _StudentCoursesPageImprovedState extends State<StudentCoursesPageImproved>
         final enrollments = snapshot.data!.docs;
 
         return ListView.builder(
-          padding: const EdgeInsets.all(4), // Réduit de 6 à 4
+          padding: const EdgeInsets.all(8),
           itemCount: enrollments.length,
           itemBuilder: (context, index) {
             final enrollment = enrollments[index];
-            final data = enrollment.data() as Map<String, dynamic>;
+            final data = enrollment.data() as Map<String, dynamic>?;
+            if (data == null) return const SizedBox.shrink();
+
             return _buildEnrollmentCard(data);
           },
         );
@@ -439,27 +430,27 @@ class _StudentCoursesPageImprovedState extends State<StudentCoursesPageImproved>
     final isCompleted = enrollmentData['isCompleted'] ?? false;
 
     return Card(
-      margin: const EdgeInsets.only(bottom: 4), // Réduit de 6 à 4
+      margin: const EdgeInsets.only(bottom: 8),
       child: ListTile(
         leading: CircleAvatar(
-          radius: 10, // Réduit de 12 à 10
+          radius: 20,
           backgroundColor: isCompleted ? Colors.green : Colors.orange,
           child: Icon(
             isCompleted ? Icons.check : Icons.play_arrow,
-            size: 12, // Réduit
+            size: 20,
             color: Colors.white,
           ),
         ),
         title: Text(
           enrollmentData['courseTitle'] ?? 'Cours sans titre',
-          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
+          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
         ),
         subtitle: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const SizedBox(height: 2), // Réduit de 4 à 2
+            const SizedBox(height: 8),
             LinearProgressIndicator(
               value: progress / 100,
               backgroundColor: Colors.grey.shade300,
@@ -467,15 +458,15 @@ class _StudentCoursesPageImprovedState extends State<StudentCoursesPageImproved>
                 isCompleted ? Colors.green : Colors.orange,
               ),
             ),
-            const SizedBox(height: 2),
+            const SizedBox(height: 4),
             Text(
               'Progression: $progress%',
-              style: const TextStyle(fontSize: 8),
+              style: const TextStyle(fontSize: 12),
             ),
           ],
         ),
         trailing: IconButton(
-          icon: const Icon(Icons.open_in_new, size: 16),
+          icon: const Icon(Icons.open_in_new, size: 20),
           onPressed: () {
             _openEnrolledCourse(enrollmentData['courseId']);
           },
@@ -489,24 +480,21 @@ class _StudentCoursesPageImprovedState extends State<StudentCoursesPageImproved>
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(
-            Icons.school_outlined,
-            size: 40,
-            color: Colors.grey[400],
-          ), // Réduit de 50 à 40
-          const SizedBox(height: 8), // Réduit de 10 à 8
+          Icon(Icons.school_outlined, size: 64, color: Colors.grey[400]),
+          const SizedBox(height: 16),
           Text(
             message,
             style: TextStyle(
-              fontSize: 12, // Réduit de 14 à 12
+              fontSize: 18,
               color: Colors.grey[600],
               fontWeight: FontWeight.w500,
             ),
+            textAlign: TextAlign.center,
           ),
-          const SizedBox(height: 4), // Réduit de 5 à 4
+          const SizedBox(height: 8),
           Text(
             'Explorez notre catalogue de cours !',
-            style: TextStyle(color: Colors.grey[500], fontSize: 8), // Réduit
+            style: TextStyle(color: Colors.grey[500], fontSize: 14),
           ),
         ],
       ),
@@ -529,9 +517,6 @@ class _StudentCoursesPageImprovedState extends State<StudentCoursesPageImproved>
       case 'view':
         _viewPdf(courseData['pdfUrl']);
         break;
-      case 'download':
-        _downloadPdf(courseData['pdfUrl'], courseId);
-        break;
       case 'enroll':
         _enrollInCourse(courseId, courseData);
         break;
@@ -552,31 +537,7 @@ class _StudentCoursesPageImprovedState extends State<StudentCoursesPageImproved>
         _showSnackBar('Impossible d\'ouvrir le PDF', isError: true);
       }
     } catch (e) {
-      _showSnackBar('Erreur lors de l\'ouverture du PDF', isError: true);
-    }
-  }
-
-  Future<void> _downloadPdf(String? pdfUrl, String courseId) async {
-    if (pdfUrl == null || pdfUrl.isEmpty) {
-      _showSnackBar('URL du PDF non disponible', isError: true);
-      return;
-    }
-
-    try {
-      await FirebaseFirestore.instance
-          .collection('courses')
-          .doc(courseId)
-          .update({'downloadCount': FieldValue.increment(1)});
-
-      final uri = Uri.parse(pdfUrl);
-      if (await canLaunchUrl(uri)) {
-        await launchUrl(uri, mode: LaunchMode.externalApplication);
-        _showSnackBar('Téléchargement démarré');
-      } else {
-        _showSnackBar('Impossible de télécharger le PDF', isError: true);
-      }
-    } catch (e) {
-      _showSnackBar('Erreur lors du téléchargement', isError: true);
+      _showSnackBar('Erreur lors de l\'ouverture du PDF: $e', isError: true);
     }
   }
 
@@ -623,18 +584,23 @@ class _StudentCoursesPageImprovedState extends State<StudentCoursesPageImproved>
       _showSnackBar('Inscription réussie ! 🎉');
       _tabController.animateTo(1);
     } catch (e) {
-      _showSnackBar('Erreur lors de l\'inscription', isError: true);
+      _showSnackBar('Erreur lors de l\'inscription: $e', isError: true);
     }
   }
 
-  Future<void> _openEnrolledCourse(String courseId) async {
+  Future<void> _openEnrolledCourse(String? courseId) async {
+    if (courseId == null) {
+      _showSnackBar('ID du cours non disponible', isError: true);
+      return;
+    }
+
     try {
       final courseDoc = await FirebaseFirestore.instance
           .collection('courses')
           .doc(courseId)
           .get();
 
-      if (courseDoc.exists) {
+      if (courseDoc.exists && courseDoc.data() != null) {
         final courseData = courseDoc.data()!;
         _viewPdf(courseData['pdfUrl']);
 
@@ -652,9 +618,11 @@ class _StudentCoursesPageImprovedState extends State<StudentCoursesPageImproved>
             });
           }
         }
+      } else {
+        _showSnackBar('Cours introuvable', isError: true);
       }
     } catch (e) {
-      _showSnackBar('Erreur lors de l\'ouverture du cours', isError: true);
+      _showSnackBar('Erreur lors de l\'ouverture du cours: $e', isError: true);
     }
   }
 

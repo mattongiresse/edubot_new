@@ -16,7 +16,7 @@ class _AdminCoursesManagementPageState extends State<AdminCoursesManagementPage>
   final TextEditingController _searchController = TextEditingController();
   String _searchQuery = '';
   String _selectedCategory = 'Tous';
-  String _selectedStatus = 'Tous';
+  final String _selectedStatus = 'Tous';
 
   @override
   void initState() {

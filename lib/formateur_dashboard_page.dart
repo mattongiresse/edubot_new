@@ -36,7 +36,7 @@ class _FormateurDashboardPageState extends State<FormateurDashboardPage> {
     },
     {
       'icon': Icons.book,
-      'title': 'Mes Cours',
+      'title': 'Cours',
       'color': Colors.blue,
       'statKey': 'totalCourses',
     },
@@ -83,9 +83,9 @@ class _FormateurDashboardPageState extends State<FormateurDashboardPage> {
     super.initState();
     _pages = [
       _buildHomePage(),
-      const FormateurCoursesImproved(),
+      FormateurCoursesPage(userName: widget.userName), // Passer userName ici
       const StudentTrackingPage(),
-      const QuizManagementPage(),
+      const QuizManagementPageImproved(),
       const FormateurMessagesPage(),
       const EvaluationsPage(),
       const FormateurAnalyticsPage(),
@@ -423,93 +423,109 @@ class _FormateurDashboardPageState extends State<FormateurDashboardPage> {
           ? const Center(child: CircularProgressIndicator())
           : IndexedStack(index: _selectedIndex, children: _pages),
       bottomNavigationBar: Container(
-        padding: const EdgeInsets.symmetric(vertical: 8.0, horizontal: 16.0),
-        color: Colors.grey[50],
-        child: SingleChildScrollView(
-          scrollDirection: Axis.horizontal,
-          child: Row(
-            children: _tabsConfig.asMap().entries.map((entry) {
-              final index = entry.key;
-              final config = entry.value;
-              final isSelected = _selectedIndex == index;
-              final statValue = config['statKey'] != null
-                  ? _dashboardStats[config['statKey']]?.toString() ?? '0'
-                  : null;
+        height: 100,
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(25)),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.1),
+              blurRadius: 15,
+              offset: const Offset(0, -5),
+            ),
+          ],
+        ),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 15),
+          child: SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: Row(
+              children: _tabsConfig.asMap().entries.map((entry) {
+                final index = entry.key;
+                final config = entry.value;
+                final isSelected = _selectedIndex == index;
+                final statValue = config['statKey'] != null
+                    ? _dashboardStats[config['statKey']]?.toString() ?? '0'
+                    : null;
 
-              return Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 4.0),
-                child: GestureDetector(
-                  onTap: () => _onItemTapped(index),
-                  child: SizedBox(
-                    height: 80,
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Container(
-                          padding: const EdgeInsets.all(8.0),
-                          decoration: BoxDecoration(
-                            color: isSelected
-                                ? config['color'].withOpacity(0.3)
-                                : Colors.transparent,
-                            borderRadius: BorderRadius.circular(20),
+                return Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 6.0),
+                  child: GestureDetector(
+                    onTap: () => _onItemTapped(index),
+                    child: AnimatedContainer(
+                      duration: const Duration(milliseconds: 200),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 20,
+                        vertical: 12,
+                      ),
+                      decoration: BoxDecoration(
+                        color: isSelected ? Colors.red : Colors.grey[100],
+                        borderRadius: BorderRadius.circular(25),
+                        border: Border.all(
+                          color: isSelected ? Colors.red : Colors.grey[300]!,
+                          width: 1.5,
+                        ),
+                        boxShadow: isSelected
+                            ? [
+                                BoxShadow(
+                                  color: Colors.red.withOpacity(0.3),
+                                  blurRadius: 8,
+                                  offset: const Offset(0, 2),
+                                ),
+                              ]
+                            : [],
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            config['icon'],
+                            color: isSelected ? Colors.white : Colors.grey[600],
+                            size: 22,
                           ),
-                          child: CircleAvatar(
-                            radius: 24,
-                            backgroundColor: isSelected
-                                ? config['color'].withOpacity(0.15)
-                                : Colors.transparent,
-                            child: Icon(
-                              config['icon'],
+                          const SizedBox(width: 8),
+                          Text(
+                            config['title'],
+                            style: TextStyle(
                               color: isSelected
                                   ? Colors.white
-                                  : config['color'],
-                              size: 28,
+                                  : Colors.grey[700],
+                              fontSize: 14,
+                              fontWeight: isSelected
+                                  ? FontWeight.bold
+                                  : FontWeight.w500,
                             ),
                           ),
-                        ),
-                        const SizedBox(height: 2),
-                        Text(
-                          config['title'],
-                          style: TextStyle(
-                            fontSize: 12,
-                            fontWeight: isSelected
-                                ? FontWeight.bold
-                                : FontWeight.w500,
-                            color: isSelected
-                                ? config['color']
-                                : Colors.grey[600],
-                          ),
-                        ),
-                        SizedBox(
-                          height: 16,
-                          child: statValue != null
-                              ? Container(
-                                  margin: const EdgeInsets.only(top: 2),
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 6,
-                                    vertical: 2,
-                                  ),
-                                  decoration: BoxDecoration(
-                                    color: config['color'],
-                                    borderRadius: BorderRadius.circular(10),
-                                  ),
-                                  child: Text(
-                                    statValue,
-                                    style: const TextStyle(
-                                      fontSize: 10,
-                                      color: Colors.white,
-                                      fontWeight: FontWeight.bold,
-                                    ),
-                                  ),
-                                )
-                              : const SizedBox.shrink(),
-                        ),
-                      ],
+                          if (statValue != null && statValue != '0') ...[
+                            const SizedBox(width: 8),
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 8,
+                                vertical: 4,
+                              ),
+                              decoration: BoxDecoration(
+                                color: Colors.white,
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: Text(
+                                statValue,
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: isSelected
+                                      ? Colors.red
+                                      : Colors.grey[600],
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ],
+                      ),
                     ),
                   ),
-                ),
-              );
-            }).toList(),
+                );
+              }).toList(),
+            ),
           ),
         ),
       ),

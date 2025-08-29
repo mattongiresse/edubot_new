@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart'; // Ajouté pour la déconnexion
 import 'package:fl_chart/fl_chart.dart';
+import 'dart:io';
 
 class FormateurProfilePage extends StatefulWidget {
   const FormateurProfilePage({super.key});
@@ -12,6 +13,7 @@ class FormateurProfilePage extends StatefulWidget {
 class _FormateurProfilePageState extends State<FormateurProfilePage>
     with TickerProviderStateMixin {
   late TabController _tabController;
+  File? _profileImage;
 
   // Controllers
   final TextEditingController _prenomController = TextEditingController();
@@ -91,9 +93,12 @@ class _FormateurProfilePageState extends State<FormateurProfilePage>
           Center(
             child: Stack(
               children: [
-                const CircleAvatar(
+                CircleAvatar(
                   radius: 60,
-                  backgroundImage: AssetImage("assets/profile_placeholder.png"),
+                  backgroundImage: _profileImage != null
+                      ? FileImage(_profileImage!)
+                      : const AssetImage("assets/profile_placeholder.png")
+                            as ImageProvider,
                 ),
                 Positioned(
                   bottom: 0,
@@ -147,12 +152,11 @@ class _FormateurProfilePageState extends State<FormateurProfilePage>
 
                   TextField(
                     controller: _emailController,
-                    enabled: false,
+                    enabled: true,
                     decoration: const InputDecoration(
                       labelText: 'Email',
                       border: OutlineInputBorder(),
                       prefixIcon: Icon(Icons.email),
-                      suffixIcon: Icon(Icons.lock, color: Colors.grey),
                     ),
                   ),
                   const SizedBox(height: 16),

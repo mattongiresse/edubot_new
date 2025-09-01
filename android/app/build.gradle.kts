@@ -30,7 +30,7 @@ android {
         applicationId = "com.example.edubot_new"
 
         // ✅ Correction : on force à 23 pour supporter cloud_firestore
-        minSdk = 23
+        minSdk = flutter.minSdkVersion
 
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode

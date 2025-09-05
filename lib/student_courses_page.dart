@@ -1,7 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:webview_flutter/webview_flutter.dart';
+import 'package:flutter_pdfview/flutter_pdfview.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:http/http.dart' as http;
+import 'dart:io';
 
 class StudentCoursesPageImproved extends StatefulWidget {
   const StudentCoursesPageImproved({super.key});
@@ -32,6 +38,8 @@ class _StudentCoursesPageImprovedState extends State<StudentCoursesPageImproved>
   void initState() {
     super.initState();
     _tabController = TabController(length: 2, vsync: this);
+    _checkPdfPaths();
+    _fixPdfPaths();
   }
 
   @override
@@ -39,6 +47,143 @@ class _StudentCoursesPageImprovedState extends State<StudentCoursesPageImproved>
     _tabController.dispose();
     _searchController.dispose();
     super.dispose();
+  }
+
+  // Script pour vérifier les pdfPath
+  Future<void> _checkPdfPaths() async {
+    final courses = await FirebaseFirestore.instance
+        .collection('courses')
+        .get();
+    for (var doc in courses.docs) {
+      final pdfPath = doc['pdfPath'] ?? '';
+      if (pdfPath.isNotEmpty) {
+        try {
+          final cleanedPdfPath = _cleanPdfPath(pdfPath);
+          final url = Supabase.instance.client.storage
+              .from('course-files')
+              .getPublicUrl(cleanedPdfPath);
+          final response = await http.head(Uri.parse(url));
+          if (response.statusCode == 200) {
+            print('Fichier valide : $pdfPath pour ${doc.id}');
+          } else {
+            print(
+              'Fichier invalide pour ${doc.id} : $pdfPath (HTTP ${response.statusCode})',
+            );
+          }
+        } catch (e) {
+          print('Erreur pour ${doc.id} : $pdfPath ($e)');
+        }
+      }
+    }
+  }
+
+  // Script pour corriger les pdfPath dans Firestore
+  Future<void> _fixPdfPaths() async {
+    const prefix = 'storage/v1/object/public/course-files/';
+    final courses = await FirebaseFirestore.instance
+        .collection('courses')
+        .get();
+    for (var doc in courses.docs) {
+      final pdfPath = doc['pdfPath'] ?? '';
+      if (pdfPath.isNotEmpty && pdfPath.startsWith(prefix)) {
+        final cleanedPdfPath = pdfPath.substring(prefix.length);
+        await FirebaseFirestore.instance
+            .collection('courses')
+            .doc(doc.id)
+            .update({'pdfPath': cleanedPdfPath});
+        print('Corrigé pdfPath pour ${doc.id} : $pdfPath -> $cleanedPdfPath');
+      }
+    }
+  }
+
+  // Nettoyer le pdfPath
+  String _cleanPdfPath(String pdfPath) {
+    const prefix = 'storage/v1/object/public/course-files/';
+    if (pdfPath.startsWith(prefix)) {
+      return pdfPath.substring(prefix.length);
+    }
+    return pdfPath.trim();
+  }
+
+  // Nouvelle méthode pour liker un cours
+  Future<void> _likeCourse(String courseId) async {
+    final userId = FirebaseAuth.instance.currentUser?.uid;
+    if (userId == null) {
+      _showSnackBar(
+        'Veuillez vous connecter pour liker un cours',
+        isError: true,
+      );
+      return;
+    }
+
+    try {
+      final likeDoc = await FirebaseFirestore.instance
+          .collection('courses')
+          .doc(courseId)
+          .collection('likes')
+          .doc(userId)
+          .get();
+
+      if (likeDoc.exists) {
+        _showSnackBar('Vous avez déjà liké ce cours', isError: true);
+        return;
+      }
+
+      await FirebaseFirestore.instance
+          .collection('courses')
+          .doc(courseId)
+          .collection('likes')
+          .doc(userId)
+          .set({'likedAt': FieldValue.serverTimestamp()});
+
+      await FirebaseFirestore.instance
+          .collection('courses')
+          .doc(courseId)
+          .update({'likeCount': FieldValue.increment(1)});
+
+      _showSnackBar('Cours liké ! 👍');
+    } catch (e) {
+      _showSnackBar('Erreur lors du like: $e', isError: true);
+    }
+  }
+
+  // Nouvelle méthode pour télécharger un cours
+  Future<void> _downloadCourse(String? pdfPath, String courseId) async {
+    if (pdfPath == null || pdfPath.isEmpty) {
+      _showSnackBar('Chemin du PDF non disponible', isError: true);
+      return;
+    }
+
+    try {
+      final cleanedPdfPath = _cleanPdfPath(pdfPath);
+      final supabase = Supabase.instance.client;
+      final pdfUrl = supabase.storage
+          .from('course-files')
+          .getPublicUrl(cleanedPdfPath);
+      print(
+        'Tentative de téléchargement du PDF avec pdfPath: $cleanedPdfPath, url: $pdfUrl',
+      );
+
+      final response = await http.head(Uri.parse(pdfUrl));
+      if (response.statusCode != 200) {
+        throw Exception(
+          'Fichier non trouvé dans Supabase (HTTP ${response.statusCode})',
+        );
+      }
+
+      final downloadResponse = await http.get(Uri.parse(pdfUrl));
+      final directory = await getApplicationDocumentsDirectory();
+      final fileName = cleanedPdfPath.split('/').last;
+      final file = File('${directory.path}/$fileName');
+      await file.writeAsBytes(downloadResponse.bodyBytes);
+
+      _showSnackBar(
+        'Cours téléchargé avec succès dans ${directory.path}/$fileName !',
+      );
+    } catch (e) {
+      _showSnackBar('Erreur lors du téléchargement: $e', isError: true);
+      print('Erreur téléchargement : $e (pdfPath: $pdfPath)');
+    }
   }
 
   @override
@@ -73,7 +218,6 @@ class _StudentCoursesPageImprovedState extends State<StudentCoursesPageImproved>
   Widget _buildAllCoursesTab() {
     return Column(
       children: [
-        // Barre de recherche et filtres
         Container(
           padding: const EdgeInsets.all(8),
           color: Colors.white,
@@ -127,7 +271,6 @@ class _StudentCoursesPageImprovedState extends State<StudentCoursesPageImproved>
             ],
           ),
         ),
-        // Liste des cours
         Expanded(child: _buildCoursesList()),
       ],
     );
@@ -210,139 +353,72 @@ class _StudentCoursesPageImprovedState extends State<StudentCoursesPageImproved>
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        courseData['title'] ?? 'Sans titre',
+                        courseData['title'] ?? 'Cours sans titre',
                         style: const TextStyle(
                           fontSize: 16,
                           fontWeight: FontWeight.bold,
                         ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        courseData['description'] ?? 'Aucune description',
+                        style: TextStyle(fontSize: 12, color: Colors.grey[600]),
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
                       ),
                       const SizedBox(height: 4),
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 8,
-                          vertical: 4,
-                        ),
-                        decoration: BoxDecoration(
-                          color: Colors.deepPurple.withOpacity(0.1),
-                          borderRadius: BorderRadius.circular(4),
-                        ),
-                        child: Text(
-                          courseData['category'] ?? 'Non catégorisé',
-                          style: const TextStyle(
-                            color: Colors.deepPurple,
-                            fontSize: 12,
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
+                      Text(
+                        'Catégorie: ${courseData['category'] ?? 'Non spécifiée'}',
+                        style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        'Likes: ${courseData['likeCount'] ?? 0}',
+                        style: TextStyle(fontSize: 12, color: Colors.grey[600]),
                       ),
                     ],
                   ),
                 ),
-                PopupMenuButton<String>(
-                  itemBuilder: (context) => [
-                    const PopupMenuItem(
-                      value: 'view',
-                      child: Row(
-                        children: [
-                          Icon(Icons.visibility, size: 16),
-                          SizedBox(width: 8),
-                          Text('Voir le cours'),
-                        ],
-                      ),
+                Row(
+                  children: [
+                    IconButton(
+                      icon: const Icon(Icons.remove_red_eye, size: 20),
+                      onPressed: () =>
+                          _viewPdf(courseData['pdfPath'], courseId: courseId),
                     ),
-                    const PopupMenuItem(
-                      value: 'enroll',
-                      child: Row(
-                        children: [
-                          Icon(Icons.add, size: 16),
-                          SizedBox(width: 8),
-                          Text('S\'inscrire'),
-                        ],
-                      ),
+                    IconButton(
+                      icon: const Icon(Icons.thumb_up, size: 20),
+                      onPressed: () => _likeCourse(courseId),
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.download, size: 20),
+                      onPressed: () =>
+                          _downloadCourse(courseData['pdfPath'], courseId),
                     ),
                   ],
-                  onSelected: (value) =>
-                      _handleCourseAction(value, courseId, courseData),
                 ),
-              ],
-            ),
-            const SizedBox(height: 8),
-            Text(
-              courseData['description'] ?? 'Aucune description',
-              style: TextStyle(color: Colors.grey[600], fontSize: 14),
-              maxLines: 3,
-              overflow: TextOverflow.ellipsis,
-            ),
-            const SizedBox(height: 8),
-            Row(
-              children: [
-                Icon(Icons.person, size: 16, color: Colors.grey[600]),
-                const SizedBox(width: 4),
-                Expanded(
-                  child: Text(
-                    courseData['formateurNom'] ?? 'Formateur inconnu',
-                    style: TextStyle(color: Colors.grey[600], fontSize: 12),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ),
-                if (courseData['fileSize'] != null) ...[
-                  Icon(Icons.file_present, size: 16, color: Colors.red[600]),
-                  const SizedBox(width: 4),
-                  Text(
-                    _formatFileSize(courseData['fileSize'] ?? 0),
-                    style: TextStyle(color: Colors.grey[600], fontSize: 12),
-                  ),
-                ],
               ],
             ),
             const SizedBox(height: 8),
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                _buildStatChip(
-                  Icons.people,
-                  '${courseData['enrollmentCount'] ?? 0} inscrits',
-                  Colors.blue,
+                Text(
+                  'Créé le: ${courseData['createdAt']?.toDate().toString().split(' ')[0] ?? 'N/A'}',
+                  style: TextStyle(fontSize: 10, color: Colors.grey[600]),
                 ),
-                _buildStatChip(
-                  Icons.download,
-                  '${courseData['downloadCount'] ?? 0} téléchargements',
-                  Colors.green,
-                ),
-                _buildStatChip(
-                  Icons.thumb_up,
-                  '${courseData['likes'] ?? 0} likes',
-                  Colors.orange,
-                ),
-              ],
-            ),
-            const SizedBox(height: 12),
-            Row(
-              children: [
-                Expanded(
-                  child: ElevatedButton.icon(
-                    onPressed: () => _enrollInCourse(courseId, courseData),
-                    icon: const Icon(Icons.add, size: 16),
-                    label: const Text('S\'inscrire'),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.deepPurple,
-                      foregroundColor: Colors.white,
+                ElevatedButton(
+                  onPressed: () => _enrollInCourse(courseId, courseData),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.deepPurple,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 8,
                     ),
+                    textStyle: const TextStyle(fontSize: 12),
                   ),
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: OutlinedButton.icon(
-                    onPressed: () => _viewPdf(courseData['pdfUrl']),
-                    icon: const Icon(Icons.visibility, size: 16),
-                    label: const Text('Voir PDF'),
-                    style: OutlinedButton.styleFrom(
-                      foregroundColor: Colors.deepPurple,
-                    ),
-                  ),
+                  child: const Text('S\'inscrire'),
                 ),
               ],
             ),
@@ -352,48 +428,16 @@ class _StudentCoursesPageImprovedState extends State<StudentCoursesPageImproved>
     );
   }
 
-  Widget _buildStatChip(IconData icon, String text, Color color) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-      decoration: BoxDecoration(
-        color: color.withOpacity(0.1),
-        borderRadius: BorderRadius.circular(4),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, size: 12, color: color),
-          const SizedBox(width: 4),
-          Text(
-            text,
-            style: TextStyle(
-              color: color,
-              fontSize: 10,
-              fontWeight: FontWeight.w500,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
   Widget _buildMyCoursesTab() {
     final userId = FirebaseAuth.instance.currentUser?.uid;
-
     if (userId == null) {
-      return const Center(
-        child: Text(
-          'Veuillez vous connecter pour voir vos cours',
-          style: TextStyle(fontSize: 16),
-        ),
-      );
+      return const Center(child: Text('Veuillez vous connecter'));
     }
 
     return StreamBuilder<QuerySnapshot>(
       stream: FirebaseFirestore.instance
           .collection('enrollments')
           .where('studentId', isEqualTo: userId)
-          .orderBy('enrolledAt', descending: true)
           .snapshots(),
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
@@ -405,73 +449,72 @@ class _StudentCoursesPageImprovedState extends State<StudentCoursesPageImproved>
         }
 
         if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
-          return _buildEmptyState('Vous n\'êtes inscrit à aucun cours');
+          return _buildEmptyState('Aucun cours inscrit');
         }
 
         final enrollments = snapshot.data!.docs;
-
         return ListView.builder(
           padding: const EdgeInsets.all(8),
           itemCount: enrollments.length,
           itemBuilder: (context, index) {
             final enrollment = enrollments[index];
-            final data = enrollment.data() as Map<String, dynamic>?;
-            if (data == null) return const SizedBox.shrink();
-
-            return _buildEnrollmentCard(data);
+            final data = enrollment.data() as Map<String, dynamic>;
+            return Card(
+              margin: const EdgeInsets.only(bottom: 8),
+              elevation: 2,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: ListTile(
+                title: Text(
+                  data['courseTitle'] ?? 'Cours sans titre',
+                  style: const TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                subtitle: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('Progression: ${data['progress'] ?? 0}%'),
+                    Text(
+                      'Dernier accès: ${data['lastAccessed']?.toDate().toString().split(' ')[0] ?? 'N/A'}',
+                      style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+                    ),
+                  ],
+                ),
+                trailing: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    IconButton(
+                      icon: const Icon(Icons.thumb_up, size: 20),
+                      onPressed: () => _likeCourse(data['courseId']),
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.download, size: 20),
+                      onPressed: () =>
+                          _downloadCourse(data['pdfPath'], data['courseId']),
+                    ),
+                    ElevatedButton(
+                      onPressed: () => _openEnrolledCourse(data['courseId']),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.deepPurple,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 8,
+                        ),
+                        textStyle: const TextStyle(fontSize: 12),
+                      ),
+                      child: const Text('Ouvrir'),
+                    ),
+                  ],
+                ),
+              ),
+            );
           },
         );
       },
-    );
-  }
-
-  Widget _buildEnrollmentCard(Map<String, dynamic> enrollmentData) {
-    final progress = enrollmentData['progress'] ?? 0;
-    final isCompleted = enrollmentData['isCompleted'] ?? false;
-
-    return Card(
-      margin: const EdgeInsets.only(bottom: 8),
-      child: ListTile(
-        leading: CircleAvatar(
-          radius: 20,
-          backgroundColor: isCompleted ? Colors.green : Colors.orange,
-          child: Icon(
-            isCompleted ? Icons.check : Icons.play_arrow,
-            size: 20,
-            color: Colors.white,
-          ),
-        ),
-        title: Text(
-          enrollmentData['courseTitle'] ?? 'Cours sans titre',
-          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-        ),
-        subtitle: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const SizedBox(height: 8),
-            LinearProgressIndicator(
-              value: progress / 100,
-              backgroundColor: Colors.grey.shade300,
-              valueColor: AlwaysStoppedAnimation<Color>(
-                isCompleted ? Colors.green : Colors.orange,
-              ),
-            ),
-            const SizedBox(height: 4),
-            Text(
-              'Progression: $progress%',
-              style: const TextStyle(fontSize: 12),
-            ),
-          ],
-        ),
-        trailing: IconButton(
-          icon: const Icon(Icons.open_in_new, size: 20),
-          onPressed: () {
-            _openEnrolledCourse(enrollmentData['courseId']);
-          },
-        ),
-      ),
     );
   }
 
@@ -480,64 +523,79 @@ class _StudentCoursesPageImprovedState extends State<StudentCoursesPageImproved>
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(Icons.school_outlined, size: 64, color: Colors.grey[400]),
+          Icon(Icons.info_outline, size: 48, color: Colors.grey[400]),
           const SizedBox(height: 16),
           Text(
             message,
-            style: TextStyle(
-              fontSize: 18,
-              color: Colors.grey[600],
-              fontWeight: FontWeight.w500,
-            ),
-            textAlign: TextAlign.center,
-          ),
-          const SizedBox(height: 8),
-          Text(
-            'Explorez notre catalogue de cours !',
-            style: TextStyle(color: Colors.grey[500], fontSize: 14),
+            style: TextStyle(fontSize: 16, color: Colors.grey[600]),
           ),
         ],
       ),
     );
   }
 
-  String _formatFileSize(int bytes) {
-    if (bytes <= 0) return "0 B";
-    const suffixes = ["B", "KB", "MB", "GB"];
-    int i = (bytes.bitLength - 1) ~/ 10;
-    return "${(bytes / (1 << (i * 10))).toStringAsFixed(1)} ${suffixes[i]}";
-  }
-
-  void _handleCourseAction(
-    String action,
-    String courseId,
-    Map<String, dynamic> courseData,
-  ) {
-    switch (action) {
-      case 'view':
-        _viewPdf(courseData['pdfUrl']);
-        break;
-      case 'enroll':
-        _enrollInCourse(courseId, courseData);
-        break;
-    }
-  }
-
-  Future<void> _viewPdf(String? pdfUrl) async {
-    if (pdfUrl == null || pdfUrl.isEmpty) {
-      _showSnackBar('URL du PDF non disponible', isError: true);
+  Future<void> _viewPdf(String? pdfPath, {String? courseId}) async {
+    if (pdfPath == null || pdfPath.isEmpty) {
+      _showSnackBar('Chemin du PDF non disponible', isError: true);
       return;
     }
 
     try {
+      // Nettoyer le pdfPath
+      final cleanedPdfPath = _cleanPdfPath(pdfPath);
+      print(
+        'pdfPath brut: $pdfPath, pdfPath encodé: ${Uri.encodeComponent(cleanedPdfPath)}',
+      );
+
+      // Utiliser Supabase pour obtenir l'URL publique
+      final supabase = Supabase.instance.client;
+      final pdfUrl = supabase.storage
+          .from('course-files')
+          .getPublicUrl(cleanedPdfPath);
+      print(
+        'Tentative d\'ouverture du PDF avec pdfPath: $cleanedPdfPath, url: $pdfUrl',
+      );
+
+      // Vérifier si le fichier existe
+      final response = await http.head(Uri.parse(pdfUrl));
+      if (response.statusCode != 200) {
+        throw Exception(
+          'Fichier non trouvé dans Supabase (HTTP ${response.statusCode})',
+        );
+      }
+
       final uri = Uri.parse(pdfUrl);
       if (await canLaunchUrl(uri)) {
         await launchUrl(uri, mode: LaunchMode.externalApplication);
       } else {
-        _showSnackBar('Impossible d\'ouvrir le PDF', isError: true);
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => Scaffold(
+              appBar: AppBar(title: const Text('Visionneuse PDF')),
+              body: WebViewWidget(
+                controller: WebViewController()
+                  ..setJavaScriptMode(JavaScriptMode.unrestricted)
+                  ..loadRequest(uri),
+              ),
+            ),
+          ),
+        );
+      }
+
+      if (courseId != null) {
+        await _initializeCourseFields(courseId);
+        await FirebaseFirestore.instance
+            .collection('courses')
+            .doc(courseId)
+            .update({'viewCount': FieldValue.increment(1)});
       }
     } catch (e) {
-      _showSnackBar('Erreur lors de l\'ouverture du PDF: $e', isError: true);
+      _showSnackBar(
+        'Erreur lors de l\'ouverture du PDF : Fichier non trouvé ou chemin incorrect',
+        isError: true,
+      );
+      print('Erreur PDF : $e (pdfPath: $pdfPath)');
     }
   }
 
@@ -574,6 +632,7 @@ class _StudentCoursesPageImprovedState extends State<StudentCoursesPageImproved>
         'progress': 0,
         'isCompleted': false,
         'lastAccessed': FieldValue.serverTimestamp(),
+        'pdfPath': courseData['pdfPath'], // Ajouté pour stocker pdfPath
       });
 
       await FirebaseFirestore.instance
@@ -594,6 +653,7 @@ class _StudentCoursesPageImprovedState extends State<StudentCoursesPageImproved>
       return;
     }
 
+    String? pdfPath;
     try {
       final courseDoc = await FirebaseFirestore.instance
           .collection('courses')
@@ -602,7 +662,48 @@ class _StudentCoursesPageImprovedState extends State<StudentCoursesPageImproved>
 
       if (courseDoc.exists && courseDoc.data() != null) {
         final courseData = courseDoc.data()!;
-        _viewPdf(courseData['pdfUrl']);
+        pdfPath = courseData['pdfPath'] ?? '';
+        if (pdfPath!.isEmpty) {
+          _showSnackBar('Aucun PDF associé à ce cours', isError: true);
+          return;
+        }
+
+        // Nettoyer le pdfPath
+        final cleanedPdfPath = _cleanPdfPath(pdfPath!);
+        print(
+          'pdfPath brut: $pdfPath, pdfPath encodé: ${Uri.encodeComponent(cleanedPdfPath)}',
+        );
+
+        // Utiliser Supabase pour obtenir l'URL publique
+        final supabase = Supabase.instance.client;
+        final pdfUrl = supabase.storage
+            .from('course-files')
+            .getPublicUrl(cleanedPdfPath);
+        print(
+          'Tentative d\'ouverture du PDF avec pdfPath: $cleanedPdfPath, url: $pdfUrl',
+        );
+
+        // Vérifier si le fichier existe
+        final response = await http.head(Uri.parse(pdfUrl));
+        if (response.statusCode != 200) {
+          throw Exception(
+            'Fichier non trouvé dans Supabase (HTTP ${response.statusCode})',
+          );
+        }
+
+        // Télécharger le PDF localement pour PDFView
+        final downloadResponse = await http.get(Uri.parse(pdfUrl));
+        final dir = await getTemporaryDirectory();
+        final file = File('${dir.path}/temp_$courseId.pdf');
+        await file.writeAsBytes(downloadResponse.bodyBytes);
+
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) =>
+                PDFViewerPage(filePath: file.path, courseId: courseId),
+          ),
+        );
 
         final userId = FirebaseAuth.instance.currentUser?.uid;
         if (userId != null) {
@@ -618,11 +719,24 @@ class _StudentCoursesPageImprovedState extends State<StudentCoursesPageImproved>
             });
           }
         }
+
+        // Incrémente viewCount
+        await _initializeCourseFields(courseId);
+        await FirebaseFirestore.instance
+            .collection('courses')
+            .doc(courseId)
+            .update({'viewCount': FieldValue.increment(1)});
       } else {
         _showSnackBar('Cours introuvable', isError: true);
       }
     } catch (e) {
-      _showSnackBar('Erreur lors de l\'ouverture du cours: $e', isError: true);
+      _showSnackBar(
+        'Erreur lors de l\'ouverture du cours: Fichier non trouvé ou chemin incorrect',
+        isError: true,
+      );
+      print(
+        'Erreur ouverture cours : $e (pdfPath: ${pdfPath ?? 'non défini'})',
+      );
     }
   }
 
@@ -637,5 +751,69 @@ class _StudentCoursesPageImprovedState extends State<StudentCoursesPageImproved>
         ),
       );
     }
+  }
+
+  Future<void> _initializeCourseFields(String courseId) async {
+    final docRef = FirebaseFirestore.instance
+        .collection('courses')
+        .doc(courseId);
+    await docRef.set({
+      'viewCount': 0,
+      'enrollmentCount': 0,
+      'likeCount': 0, // Ajouté pour initialiser likeCount
+    }, SetOptions(merge: true));
+  }
+}
+
+class PDFViewerPage extends StatefulWidget {
+  final String filePath;
+  final String courseId;
+
+  const PDFViewerPage({
+    required this.filePath,
+    required this.courseId,
+    super.key,
+  });
+
+  @override
+  _PDFViewerPageState createState() => _PDFViewerPageState();
+}
+
+class _PDFViewerPageState extends State<PDFViewerPage> {
+  int? pages = 0;
+  int? currentPage = 0;
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: const Text('Lecture du PDF')),
+      body: PDFView(
+        filePath: widget.filePath,
+        onRender: (_pages) {
+          setState(() {
+            pages = _pages;
+          });
+        },
+        onPageChanged: (page, total) {
+          setState(() {
+            currentPage = page;
+          });
+          final progress = ((page! / total!) * 100).toInt();
+          final userId = FirebaseAuth.instance.currentUser?.uid;
+          if (userId != null) {
+            FirebaseFirestore.instance
+                .collection('enrollments')
+                .where('studentId', isEqualTo: userId)
+                .where('courseId', isEqualTo: widget.courseId)
+                .get()
+                .then((query) {
+                  if (query.docs.isNotEmpty) {
+                    query.docs.first.reference.update({'progress': progress});
+                  }
+                });
+          }
+        },
+      ),
+    );
   }
 }

@@ -36,6 +36,7 @@ class _QuizManagementPageImprovedState extends State<QuizManagementPageImproved>
   }
 
   // Charger tous les cours disponibles (pas seulement ceux du formateur)
+
   Future<void> _loadAvailableCourses() async {
     try {
       setState(() => _isLoadingCourses = true);
@@ -48,24 +49,31 @@ class _QuizManagementPageImprovedState extends State<QuizManagementPageImproved>
           .get();
 
       if (mounted) {
-        setState(() {
-          _availableCourses = coursesSnapshot.docs
-              .map(
-                (doc) => {
-                  'id': doc.id,
-                  'title': doc.data()['title'] as String? ?? 'Sans titre',
-                  'category':
-                      doc.data()['category'] as String? ?? 'Non catégorisé',
-                  'formateurNom':
-                      doc.data()['formateurNom'] as String? ??
-                      'Formateur inconnu',
-                  'formateurId': doc.data()['formateurId'] as String? ?? '',
-                },
-              )
-              .toList();
+        final List<Map<String, dynamic>> availableCourses = coursesSnapshot.docs
+            .map(
+              (doc) => <String, dynamic>{
+                // Cast explicite vers Map<String, dynamic>
+                'id': doc.id as String,
+                'title': doc.data()['title'] as String? ?? 'Sans titre',
+                'category':
+                    doc.data()['category'] as String? ?? 'Non catégorisé',
+                'formateurNom':
+                    doc.data()['formateurNom'] as String? ??
+                    'Formateur inconnu',
+                'formateurId': doc.data()['formateurId'] as String? ?? '',
+              },
+            )
+            .toList();
 
+        setState(() {
+          _availableCourses = availableCourses;
           if (_availableCourses.isNotEmpty) {
             _selectedCourseId = _availableCourses.first['id'] ?? '';
+          } else {
+            _selectedCourseId = ''; // Gère le cas vide pour éviter erreurs
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Aucun cours disponible')),
+            );
           }
           _isLoadingCourses = false;
         });
@@ -80,6 +88,7 @@ class _QuizManagementPageImprovedState extends State<QuizManagementPageImproved>
           ),
         );
       }
+      print('Erreur détaillée: $e'); // Pour debug dans la console
     }
   }
 

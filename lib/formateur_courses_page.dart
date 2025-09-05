@@ -246,7 +246,7 @@ class _FormateurCoursesPageState extends State<FormateurCoursesPage>
             borderRadius: BorderRadius.circular(12),
           ),
           child: Text(
-            'SUPABASE',
+            '',
             style: GoogleFonts.poppins(
               color: Colors.white,
               fontSize: 10,
@@ -299,25 +299,35 @@ class _FormateurCoursesPageState extends State<FormateurCoursesPage>
   Widget _buildCategoryDropdown() {
     return DropdownButtonFormField<String>(
       value: _selectedCategory,
-      style: GoogleFonts.poppins(fontSize: 14),
+      style: GoogleFonts.poppins(
+        fontSize: 14,
+        color: Colors.black,
+      ), // Texte en noir pour contraste
       decoration: InputDecoration(
         labelText: 'Catégorie *',
         labelStyle: GoogleFonts.poppins(color: Colors.grey[600]),
-        prefixIcon: const Icon(Icons.category, color: Color(0xFF673AB7)),
+        prefixIcon: const Icon(
+          Icons.category,
+          color: Color(0xFF673AB7),
+        ), // Icône violette
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide(color: Colors.grey[300]!),
+          borderSide: BorderSide(
+            color: const Color(0xFF673AB7), // Bordure violette
+          ),
         ),
         enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide(color: Colors.grey[300]!),
+          borderSide: BorderSide(
+            color: const Color(0xFF9575CD), // Bordure violette plus claire
+          ),
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
           borderSide: const BorderSide(color: Color(0xFF673AB7), width: 2),
         ),
         filled: true,
-        fillColor: Colors.white,
+        fillColor: Colors.white, // Fond blanc
         contentPadding: const EdgeInsets.symmetric(
           horizontal: 16,
           vertical: 14,
@@ -327,7 +337,10 @@ class _FormateurCoursesPageState extends State<FormateurCoursesPage>
           .map(
             (category) => DropdownMenuItem(
               value: category,
-              child: Text(category, style: GoogleFonts.poppins()),
+              child: Text(
+                category,
+                style: GoogleFonts.poppins(color: Colors.black),
+              ), // Texte des options en noir
             ),
           )
           .toList(),
@@ -418,7 +431,7 @@ class _FormateurCoursesPageState extends State<FormateurCoursesPage>
                             borderRadius: BorderRadius.circular(10),
                           ),
                           child: Text(
-                            'Supabase Storage',
+                            '',
                             style: GoogleFonts.poppins(
                               color: Colors.white,
                               fontSize: 10,
@@ -588,7 +601,7 @@ class _FormateurCoursesPageState extends State<FormateurCoursesPage>
             borderRadius: BorderRadius.circular(12),
           ),
           child: Text(
-            'Supabase',
+            '',
             style: GoogleFonts.poppins(
               color: Colors.white,
               fontSize: 10,
@@ -781,7 +794,7 @@ class _FormateurCoursesPageState extends State<FormateurCoursesPage>
                         borderRadius: BorderRadius.circular(10),
                       ),
                       child: Text(
-                        'Supabase',
+                        '',
                         style: GoogleFonts.poppins(
                           color: Colors.white,
                           fontSize: 10,

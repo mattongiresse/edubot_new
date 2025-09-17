@@ -6,7 +6,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:http/http.dart' as http;
 
 class PDFViewPage extends StatefulWidget {
-  final String pdfPath; // chemin du PDF dans Supabase (ex: "monCours.pdf")
+  final String pdfPath; // chemin du PDF dans Supabase
 
   const PDFViewPage({Key? key, required this.pdfPath}) : super(key: key);
 

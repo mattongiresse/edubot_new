@@ -1026,7 +1026,7 @@ class _FormateurCoursesPageState extends State<FormateurCoursesPage>
     }
   }
 
-  Future<String?> _uploadPdfToSupabase() async {
+  Future<String?> _uploadPdfToSupabaseWithPath(String fileName) async {
     if (_selectedPdfFile == null) return null;
 
     try {
@@ -1034,15 +1034,6 @@ class _FormateurCoursesPageState extends State<FormateurCoursesPage>
 
       final user = FirebaseAuth.instance.currentUser;
       if (user == null) throw Exception('Utilisateur non connecté');
-
-      final title = _titleController.text.trim().isEmpty
-          ? 'untitled_course'
-          : _titleController.text
-                .trim()
-                .replaceAll(' ', '_')
-                .replaceAll(RegExp(r'[^\w\-_.]'), '');
-
-      final fileName = '${title}_${DateTime.now().millisecondsSinceEpoch}.pdf';
 
       String? downloadUrl;
 
@@ -1094,14 +1085,27 @@ class _FormateurCoursesPageState extends State<FormateurCoursesPage>
     }
 
     try {
-      final pdfUrl = await _uploadPdfToSupabase();
-      if (pdfUrl == null) return;
-
       final user = FirebaseAuth.instance.currentUser;
       if (user == null) {
         _showSnackBar('Utilisateur non connecté', isError: true);
         return;
       }
+
+      final title = _titleController.text.trim().isEmpty
+          ? 'untitled_course'
+          : _titleController.text
+                .trim()
+                .replaceAll(' ', '_')
+                .replaceAll(RegExp(r'[^\w\-_.]'), '');
+
+      final fileName = '${title}_${DateTime.now().millisecondsSinceEpoch}.pdf';
+
+      // Upload vers Supabase et récupérer l'URL
+      final pdfUrl = await _uploadPdfToSupabaseWithPath(fileName);
+      if (pdfUrl == null) return;
+
+      // Extraire le vrai chemin du fichier depuis l'URL retournée
+      final realPath = _extractPathFromUrl(pdfUrl);
 
       final userDoc = await FirebaseFirestore.instance
           .collection('users')
@@ -1120,7 +1124,8 @@ class _FormateurCoursesPageState extends State<FormateurCoursesPage>
         'title': _titleController.text.trim(),
         'description': _descriptionController.text.trim(),
         'category': _selectedCategory,
-        'pdfUrl': pdfUrl,
+        'pdfPath': realPath, // Utiliser le vrai chemin
+        'fileName': _selectedPdfFile!.name,
         'storageProvider': 'supabase',
         'formateurId': user.uid,
         'formateurNom': formateurNom,
@@ -1128,7 +1133,6 @@ class _FormateurCoursesPageState extends State<FormateurCoursesPage>
         'updatedAt': FieldValue.serverTimestamp(),
         'isActive': true,
         'fileSize': _selectedPdfFile!.size,
-        'fileName': _selectedPdfFile!.name,
         'likes': 0,
         'enrollmentCount': 0,
         'downloadCount': 0,
@@ -1138,6 +1142,22 @@ class _FormateurCoursesPageState extends State<FormateurCoursesPage>
       _showSnackBar('Cours créé avec succès !');
     } catch (e) {
       _showSnackBar('Erreur lors de la création du cours: $e', isError: true);
+    }
+  }
+
+  // Nouvelle méthode pour extraire le chemin depuis l'URL
+  String _extractPathFromUrl(String url) {
+    try {
+      final uri = Uri.parse(url);
+      final pathSegments = uri.pathSegments;
+      final bucketIndex = pathSegments.indexOf('course-files');
+      if (bucketIndex != -1 && bucketIndex < pathSegments.length - 1) {
+        return pathSegments.sublist(bucketIndex + 1).join('/');
+      }
+      return url;
+    } catch (e) {
+      print('Erreur extraction chemin URL: $e');
+      return url;
     }
   }
 
@@ -1325,21 +1345,43 @@ class _FormateurCoursesPageState extends State<FormateurCoursesPage>
   Future<void> _duplicateCourse(Map<String, dynamic> courseData) async {
     try {
       final user = FirebaseAuth.instance.currentUser;
-      if (user == null) return;
+      if (user == null) {
+        _showSnackBar('Utilisateur non connecté', isError: true);
+        return;
+      }
+
+      // Récupérer les données de l'utilisateur pour formateurNom
+      final userDoc = await FirebaseFirestore.instance
+          .collection('users')
+          .doc(user.uid)
+          .get();
+
+      if (!userDoc.exists) {
+        throw Exception('Profil formateur introuvable');
+      }
+
+      final userData = userDoc.data()!;
+      final formateurNom =
+          '${userData['prenom'] ?? ''} ${userData['nom'] ?? ''}'.trim();
 
       await FirebaseFirestore.instance.collection('courses').add({
-        'title': '${courseData['title']} (Copie)',
-        'description': courseData['description'],
-        'category': courseData['category'],
-        'pdfUrl': courseData['pdfUrl'],
+        'title':
+            courseData['title'] ??
+            'Cours dupliqué', // Utiliser le titre du cours existant
+        'description':
+            courseData['description'] ??
+            '', // Utiliser la description existante
+        'category': courseData['category'] ?? _selectedCategory,
+        'pdfUrl': courseData['pdfUrl'], // Utiliser l'URL PDF existante
+        'pdfPath': courseData['pdfPath'] ?? 'Document.pdf', // Nom du fichier
         'storageProvider': courseData['storageProvider'] ?? 'supabase',
         'formateurId': user.uid,
-        'formateurNom': courseData['formateurNom'],
+        'formateurNom': formateurNom, // Nom du formateur récupéré
         'createdAt': FieldValue.serverTimestamp(),
         'updatedAt': FieldValue.serverTimestamp(),
-        'isActive': false,
-        'fileSize': courseData['fileSize'],
-        'fileName': courseData['fileName'],
+        'isActive': true,
+        'fileSize': courseData['fileSize'] ?? 0, // Taille du fichier
+        'fileName': courseData['fileName'] ?? 'Document.pdf', // Nom du fichier
         'likes': 0,
         'enrollmentCount': 0,
         'downloadCount': 0,

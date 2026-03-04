@@ -3,41 +3,61 @@
 # separate terms of service, privacy policy, and support
 # documentation.
 
-name: Flutter CI
+name: Flutter CI   # Nom clair pour savoir que c'est pour Flutter (tu peux changer si tu veux)
 
 on:
   push:
-    branches: [ "main" ]
+    branches: [ "main" ]          # Déclenche sur push vers main
   pull_request:
-    branches: [ "main" ]
+    branches: [ "main" ]          # Déclenche aussi sur les PR vers main
+                                  # → Ça protège ta branche principale automatiquement
 
 jobs:
-  build-and-test:
-    runs-on: ubuntu-latest
+  build-and-test:                 # Nom du job principal (tu peux en ajouter d'autres plus tard)
+    runs-on: ubuntu-latest        # Machine virtuelle Linux récente (gratuit et rapide pour Flutter)
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v4   # Étape obligatoire : récupère ton code du repo
 
-      # Note: This workflow uses the latest stable version of the Dart SDK.
-      # You can specify other versions if desired, see documentation here:
-      # https://github.com/dart-lang/setup-dart/blob/main/README.md
-      - uses: dart-lang/setup-dart@v1
-      #    - uses: dart-lang/setup-dart@9a04e6d73cca37bd455e0608d7e5092f881fd603
+      # Ancienne version (commentée) : setup Dart seul → pas adapté à Flutter
+      # - uses: dart-lang/setup-dart@v1
+      # - uses: dart-lang/setup-dart@9a04e6d73cca37bd455e0608d7e5092f881fd603
+
+      # NOUVEAU : Installation de Flutter (inclut Dart automatiquement)
+      # C'est la méthode recommandée en 2025-2026 pour les projets Flutter
+      - name: Setup Flutter SDK
+        uses: subosito/flutter-action@v2   # Action officielle et très maintenue
+        with:
+          channel: 'stable'               # Canal stable = versions fiables et testées
+          # flutter-version: '3.24.x'     # Optionnel : fixe une version précise si besoin (décommente si tu veux)
+          cache: true                     # Active le cache → accélère énormément les runs suivants (pub get + SDK)
+          # cache-key: 'flutter:{{ runner.os }}-{{ hashFiles('**/pubspec.lock') }}'  # Optionnel : cache plus intelligent
 
       - name: Install dependencies
-        run: flutter pub get
+        run: flutter pub get              # Installe les packages (comme en local)
+                                          # → flutter pub get gère mieux les assets/fonts que dart pub get
 
-      # Uncomment this step to verify the use of 'dart format' on each commit.
-      # - name: Verify formatting
-      #   run: dart format --output=none --set-exit-if-changed .
+      # Étape utile pour forcer un code propre (style Dart/Flutter officiel)
+      # Décommente pour activer → échec si le code n'est pas formaté
+      - name: Verify formatting (code style)
+        run: dart format --output=none --set-exit-if-changed .
+        # Alternative Flutter : flutter format --set-exit-if-changed .
+        # Ajoute --fatal-infos si tu veux être encore plus strict
 
-      # Consider passing '--fatal-infos' for slightly stricter analysis.
-      - name: Analyze code
-        run: flutter analyze
+      - name: Analyze code (trouve bugs/warnings)
+        run: flutter analyze              # Analyse statique Flutter + Dart
+                                          # → Plus complet que dart analyze seul pour les widgets, etc.
 
-      # Your project will need to have tests in test/ and a dependency on
-      # package:test for this step to succeed. Note that Flutter projects will
-      # want to change this to 'flutter test'.
+      # Étape principale : lance tes tests (unit + widget tests)
+      # flutter test est obligatoire pour tes fichiers test/widget_test.dart
       - name: Run widget + unit tests
-        run: flutter test --machine --coverage   # --machine pour un output lisible dans GitHub, --coverage si tu veux plus tard
+        run: flutter test --machine --coverage
+        # --machine → format de sortie lisible dans GitHub Actions (logs clairs)
+        # --coverage → génère un rapport de couverture (lcov.info) → utile plus tard pour badge/coveralls
+        # Si tu veux voir plus de détails : flutter test -v (verbose)
+
+      # Bonus futur : si tu veux build un APK (décommente quand prêt)
+      # - name: Build APK (debug)
+      #   run: flutter build apk --debug
+      #   # Ou flutter build apk --release pour une version release
